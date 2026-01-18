@@ -127,10 +127,11 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if clickElement(element) {
+            // Use retry logic directly (includes all methods and -25206 handling)
+            if clickElementWithRetry(element, debug: true) {
                 return .success(value: nil)
             }
-            return .failure(error: "Click failed")
+            return .failure(error: "Click failed - tried all methods")
 
         case .type(let text):
             guard let element = context.currentElement else {

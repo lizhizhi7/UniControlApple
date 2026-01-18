@@ -22,6 +22,9 @@ public func exampleDSLSimple() {
     launch Excel
     wait 2
     log Finding Developer button
+    find Blank Workbook role: AXButton
+    click
+    wait 1
     find Developer role: AXButton
     click
     wait 1
@@ -59,6 +62,10 @@ public func exampleDSLComplex() {
         .perform(action: .wait(2.0)),
 
         .log(message: "Step 1: Navigate to Developer tab"),
+        .find(selector: .byTitleAndRole(title: "Blank Workbook", role: "AXButton")),
+        .perform(action: .click),
+        .perform(action: .wait(1.0)),
+
         .find(selector: .byTitleAndRole(title: "Developer", role: "AXButton")),
         .perform(action: .click),
         .perform(action: .wait(1.0)),
