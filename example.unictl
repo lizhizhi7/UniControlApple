@@ -1,0 +1,25 @@
+# UniControl DSL Script Example
+# This script demonstrates automating Excel
+
+# Launch the application
+launch Excel
+wait 2
+
+log Clicking Blank Sheet tab
+find Blank Workbook role: AXButton
+click
+wait 1
+
+# Navigate to Developer tab
+log Clicking Developer tab
+find Developer role: AXButton
+click
+wait 1
+
+# Insert a checkbox control
+log Inserting Check Box
+find Check Box
+click
+wait 0.5
+
+log Automation complete!
