@@ -86,3 +86,128 @@ public func findElement(in rootElement: AXUIElement, title: String, role: String
 
     return nil
 }
+
+// MARK: - Menu Navigation
+
+/// Find menu bar in a window
+public func findMenuBar(in window: AXUIElement) -> AXUIElement? {
+    // Get the application from the window
+    guard let app = getApplicationFromWindow(window) else {
+        return nil
+    }
+
+    // Get menu bar from application
+    if let menuBar = getAttribute(app, attribute: kAXMenuBarAttribute as CFString) {
+        return (menuBar as! AXUIElement)
+    }
+    return nil
+}
+
+/// Get application element from window
+private func getApplicationFromWindow(_ window: AXUIElement) -> AXUIElement? {
+    // Try to get parent application
+    var parent: AnyObject?
+    let result = AXUIElementCopyAttributeValue(window, kAXParentAttribute as CFString, &parent)
+    if result == .success {
+        let parentElement = (parent as! AXUIElement)
+        // Check if this is the application
+        if let role = getAttribute(parentElement, attribute: kAXRoleAttribute as CFString) as? String,
+           role == kAXApplicationRole as String {
+            return parentElement
+        }
+    }
+
+    // Alternative: Create application element from window's process
+    var pid: pid_t = 0
+    if AXUIElementGetPid(window, &pid) == .success {
+        return AXUIElementCreateApplication(pid)
+    }
+
+    return nil
+}
+
+/// Navigate menu hierarchy and find menu item
+/// Path format: "File/Save As" or "Edit/Find/Replace"
+public func findMenuItemByPath(in window: AXUIElement, path: String) -> AXUIElement? {
+    let components = path.split(separator: "/").map { String($0).trimmingCharacters(in: .whitespaces) }
+    guard !components.isEmpty else { return nil }
+
+    guard let menuBar = findMenuBar(in: window) else {
+        print("❌ Could not find menu bar")
+        return nil
+    }
+
+    // Start from menu bar
+    var currentElement: AXUIElement = menuBar
+
+    for (index, component) in components.enumerated() {
+        // Find child matching this component
+        guard let children = getAttribute(currentElement, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement] else {
+            print("❌ No children at level \(index): \(component)")
+            return nil
+        }
+
+        var found: AXUIElement?
+        for child in children {
+            let title = getAttribute(child, attribute: kAXTitleAttribute as CFString) as? String
+            if title == component || title?.contains(component) == true {
+                found = child
+                break
+            }
+        }
+
+        guard let nextElement = found else {
+            print("❌ Could not find menu item: \(component)")
+            return nil
+        }
+
+        currentElement = nextElement
+
+        // If not the last component, we need to get the menu (submenu)
+        if index < components.count - 1 {
+            // Get children attribute or menu attribute to navigate deeper
+            if let menuObj = getAttribute(currentElement, attribute: "AXMenu" as CFString) {
+                let menu = (menuObj as! AXUIElement)
+                currentElement = menu
+            } else if let children = getAttribute(currentElement, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement],
+                      let firstChild = children.first {
+                currentElement = firstChild
+            }
+        }
+    }
+
+    return currentElement
+}
+
+/// Select a menu item by clicking it
+public func selectMenuItemByPath(in window: AXUIElement, path: String) -> Bool {
+    guard let menuItem = findMenuItemByPath(in: window, path: path) else {
+        return false
+    }
+
+    // Click the menu item
+    let result = AXUIElementPerformAction(menuItem, kAXPressAction as CFString)
+    return result == .success || result.rawValue == -25206
+}
+
+/// Open a top-level menu by name
+public func openMenu(in window: AXUIElement, name: String) -> AXUIElement? {
+    guard let menuBar = findMenuBar(in: window) else {
+        return nil
+    }
+
+    guard let children = getAttribute(menuBar, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement] else {
+        return nil
+    }
+
+    for child in children {
+        let title = getAttribute(child, attribute: kAXTitleAttribute as CFString) as? String
+        if title == name || title?.contains(name) == true {
+            // Open the menu
+            let _ = AXUIElementPerformAction(child, kAXPressAction as CFString)
+            return child
+        }
+    }
+
+    return nil
+}

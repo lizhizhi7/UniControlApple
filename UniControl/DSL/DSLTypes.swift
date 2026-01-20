@@ -7,6 +7,7 @@
 
 import Foundation
 import ApplicationServices
+import CoreGraphics
 
 /// Represents a UI element selector
 public enum ElementSelector {
@@ -15,14 +16,29 @@ public enum ElementSelector {
     case byTitleAndRole(title: String, role: String)
     case byIndex(Int)
     case all
+    case byState(role: String, state: String)
+    case byRegex(pattern: String)
 }
 
 /// Represents an action to perform on an element
 public enum Action {
     case click
+    case doubleClick
+    case rightClick
     case type(String)
     case setValue(String)
     case wait(TimeInterval)
+    case scroll(direction: String)
+    case pressKey(combo: String)
+    case selectMenuItem(path: String)
+    case openMenu(name: String)
+    case increment
+    case decrement
+    case focus
+    case check
+    case uncheck
+    case expand
+    case collapse
 }
 
 /// Represents a command in the DSL
@@ -32,6 +48,14 @@ public enum Command {
     case perform(action: Action)
     case assert(condition: String)
     case log(message: String)
+    case mode(ExecutionMode)
+}
+
+/// Execution mode for error handling
+public enum ExecutionMode {
+    case strict      // Stop immediately on error
+    case `continue`  // Log errors and continue, show summary
+    case interactive // Pause and prompt user on errors
 }
 
 /// Result of executing a command
@@ -51,6 +75,8 @@ public class ExecutionContext {
     public var currentElement: AXUIElement?
     public var foundElements: [AXUIElement] = []
     public var variables: [String: Any] = [:]
+    public var mode: ExecutionMode = .continue  // Default to continue mode
+    public var errorLog: [(commandIndex: Int, command: String, error: String)] = []
 
     public init() {}
 
@@ -59,5 +85,7 @@ public class ExecutionContext {
         currentElement = nil
         foundElements = []
         variables = [:]
+        mode = .continue
+        errorLog = []
     }
 }
