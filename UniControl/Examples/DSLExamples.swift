@@ -90,7 +90,7 @@ public func exampleDSLComplex() {
 }
 
 /// Load and execute DSL script from file
-public func exampleDSLFromFile() {
+public func exampleDSLFromFile(_ filePath: String? = nil, verbose: Bool = true) {
     if !checkAccessibilityPermission() {
         print("Accessibility permission required.")
         _ = requestAccessibilityPermission()
@@ -102,12 +102,14 @@ public func exampleDSLFromFile() {
     // Example of loading a script from a file
     let scriptPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : nil
 
-    if let path = scriptPath, let scriptContent = try? String(contentsOfFile: path) {
+    let pathToUse = filePath ?? scriptPath
+
+    if let path = pathToUse, let scriptContent = try? String(contentsOfFile: path) {
         print("Loading script from: \(path)\n")
         let commands = DSLParser.parse(scriptContent)
         let executor = DSLExecutor()
 
-        if executor.execute(commands) {
+        if executor.execute(commands, verbose: verbose) {
             print("\n✅ Script executed successfully!")
         } else {
             print("\n❌ Script execution failed")
