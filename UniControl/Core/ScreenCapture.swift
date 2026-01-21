@@ -19,6 +19,7 @@ import UniformTypeIdentifiers
 public func captureWindow(_ window: AXUIElement) async -> CGImage? {
     // Get window ID from AXUIElement
     guard let windowID = getWindowID(from: window) else {
+        print("❌ Screenshot failed: Could not get window ID from AXUIElement")
         return nil
     }
 
@@ -31,6 +32,9 @@ public func captureWindow(_ window: AXUIElement) async -> CGImage? {
 
         // Find the window with matching ID
         guard let scWindow = availableContent.windows.first(where: { $0.windowID == CGWindowID(windowID) }) else {
+            print("❌ Screenshot failed: Window ID \(windowID) not found in shareable content")
+            print("   Available windows: \(availableContent.windows.count)")
+            print("   💡 Window may be minimized, hidden, or requires Screen Recording permission")
             return nil
         }
 
@@ -50,7 +54,17 @@ public func captureWindow(_ window: AXUIElement) async -> CGImage? {
         )
 
         return image
+    } catch let error as NSError {
+        print("❌ Screenshot failed: \(error.localizedDescription)")
+        print("   Error domain: \(error.domain)")
+        print("   Error code: \(error.code)")
+        if error.domain == "com.apple.screencapturekit" && error.code == -3801 {
+            print("   💡 This error usually means Screen Recording permission is required")
+            print("   📋 Grant permission: System Settings → Privacy & Security → Screen Recording")
+        }
+        return nil
     } catch {
+        print("❌ Screenshot failed: \(error.localizedDescription)")
         return nil
     }
 }

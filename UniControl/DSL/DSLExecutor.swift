@@ -141,6 +141,9 @@ public class DSLExecutor {
                 }
             }
 
+            // Clear current element since search failed
+            context.currentElement = nil
+
             // Use suggestion engine
             let suggestions = generateNotFoundMessage(window: window, searchTerm: title)
             return .failure(error: "Could not find element with title: \(title)\n\n\(suggestions)")
@@ -152,6 +155,8 @@ public class DSLExecutor {
                 context.foundElements = elements
                 return .success(value: elements)
             }
+            // Clear current element since search failed
+            context.currentElement = nil
             return .failure(error: "Could not find elements with role: \(role)")
 
         case .byTitleAndRole(let title, let role):
@@ -168,6 +173,9 @@ public class DSLExecutor {
                 }
             }
 
+            // Clear current element since search failed
+            context.currentElement = nil
+
             // Use suggestion engine
             let suggestions = generateNotFoundMessage(window: window, searchTerm: title, role: role)
             return .failure(error: "Could not find element with title: \(title) and role: \(role)\n\n\(suggestions)")
@@ -177,7 +185,9 @@ public class DSLExecutor {
                 context.currentElement = context.foundElements[index]
                 return .success(value: context.foundElements[index])
             }
-            return .failure(error: "Index \(index) out of bounds")
+            // Clear current element since index is invalid
+            context.currentElement = nil
+            return .failure(error: "Index \(index) out of bounds (found elements: \(context.foundElements.count))")
 
         case .all:
             let elements = findElements(in: window)
@@ -210,6 +220,8 @@ public class DSLExecutor {
                 context.foundElements = matchingElements
                 return .success(value: matchingElements)
             }
+            // Clear current element since search failed
+            context.currentElement = nil
             return .failure(error: "Could not find elements with role: \(role) and state: \(state)")
 
         case .byRegex(let pattern):
@@ -243,6 +255,8 @@ public class DSLExecutor {
                 context.foundElements = matchingElements
                 return .success(value: matchingElements)
             }
+            // Clear current element since search failed
+            context.currentElement = nil
             return .failure(error: "Could not find elements matching pattern: \(pattern)")
         }
     }
