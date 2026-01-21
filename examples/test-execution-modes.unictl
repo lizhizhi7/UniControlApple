@@ -1,0 +1,43 @@
+# Test Execution Modes - Stage 2 Implementation
+# Tests: strict, continue, and interactive modes with error handling
+
+log === Testing Execution Modes ===
+
+# Test 1: Continue mode (default)
+log Test 1: Continue mode - errors logged, execution continues
+mode continue
+
+launch Calculator
+wait 2
+
+find 5
+click
+wait 0.5
+
+# This will fail but continue mode will keep going
+find NonExistentButton
+click
+
+# This should still execute despite previous error
+find 3
+click
+wait 0.5
+
+log Continue mode test complete - check error summary
+
+# Test 2: Strict mode
+log Test 2: Strict mode - stops on first error
+mode strict
+
+find 9
+click
+wait 0.5
+
+# This will fail and stop execution in strict mode
+find AnotherNonExistent
+click
+
+# This line should NOT execute in strict mode
+log This should not print in strict mode
+
+log === Execution Modes Test Complete ===

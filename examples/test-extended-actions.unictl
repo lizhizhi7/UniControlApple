@@ -1,0 +1,69 @@
+# Test Extended Actions - Stage 1 Implementation
+# Tests all new actions: doubleclick, scroll, pressKey, increment/decrement, etc.
+
+mode continue
+
+log === Testing Extended Actions ===
+
+# Test with Calculator
+log Launching Calculator
+launch Calculator
+wait 2
+
+log Test: Basic click operations
+find 7
+click
+wait 0.3
+
+find +
+click
+wait 0.3
+
+find 3
+click
+wait 0.3
+
+find =
+click
+wait 1
+
+log Test: Focus action
+find C
+focus
+wait 0.5
+
+log Test: Keyboard shortcut
+pressKey Cmd+C
+wait 0.5
+
+log Test: Clear and new calculation
+find C
+click
+wait 0.5
+
+log Test: Double-click (if supported by Calculator)
+find 5
+doubleClick
+wait 0.5
+
+log === Calculator Tests Complete ===
+
+# Test with TextEdit for more actions
+log Launching TextEdit
+launch TextEdit
+wait 2
+
+log Test: Type action
+find role: AXTextArea
+click
+wait 0.5
+type Hello World from UniControl!
+wait 1
+
+log Test: Keyboard navigation
+pressKey Cmd+A
+wait 0.5
+pressKey Cmd+C
+wait 0.5
+
+log === Extended Actions Test Complete ===
