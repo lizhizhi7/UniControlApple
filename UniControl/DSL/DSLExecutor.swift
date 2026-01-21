@@ -14,28 +14,64 @@ public class DSLExecutor {
     public init() {}
 
     public func execute(_ commands: [Command], verbose: Bool = true) -> Bool {
-        var success = true
+        var successCount = 0
+        var failureCount = 0
 
         for (index, command) in commands.enumerated() {
+            // Interactive mode: prompt before each command
+            if context.mode == .interactive {
+                if !promptForCommand(command, index: index, total: commands.count) {
+                    print("⏭️  Skipped command")
+                    continue
+                }
+            }
+
             if verbose {
                 print("[\(index + 1)/\(commands.count)] Executing: \(command)")
             }
 
-            let result = executeCommand(command)
+            let result = executeCommand(command, index: index)
 
             if case .failure(let error) = result {
-                print("❌ Error: \(error)")
-                success = false
-                break
-            } else if verbose {
-                print("✓ Success")
+                failureCount += 1
+
+                // Log error for continue mode
+                if context.mode == .continue {
+                    context.errorLog.append((commandIndex: index, command: "\(command)", error: error))
+                    print("❌ Error: \(error)")
+                    // Continue to next command
+                } else if context.mode == .strict {
+                    // Stop immediately
+                    print("❌ Error: \(error)")
+                    print("🛑 Stopped execution (strict mode)")
+                    printErrorSummary(successCount: successCount, failureCount: failureCount + 1, total: commands.count)
+                    return false
+                } else if context.mode == .interactive {
+                    // Interactive mode: prompt on error
+                    print("❌ Error: \(error)")
+                    if !promptOnError(error: error, command: command) {
+                        print("🛑 User chose to quit")
+                        printErrorSummary(successCount: successCount, failureCount: failureCount + 1, total: commands.count)
+                        return false
+                    }
+                }
+            } else {
+                successCount += 1
+                if verbose {
+                    print("✓ Success")
+                }
             }
         }
 
-        return success
+        // Print summary for continue mode
+        if context.mode == .continue && !context.errorLog.isEmpty {
+            printErrorSummary(successCount: successCount, failureCount: failureCount, total: commands.count)
+        }
+
+        return failureCount == 0
     }
 
-    private func executeCommand(_ command: Command) -> CommandResult {
+    private func executeCommand(_ command: Command, index: Int = 0) -> CommandResult {
         switch command {
         case .launch(let appName):
             return executeLaunch(appName)
@@ -94,7 +130,9 @@ public class DSLExecutor {
                 context.currentElement = element
                 return .success(value: element)
             }
-            return .failure(error: "Could not find element with title: \(title)")
+            // Use suggestion engine
+            let suggestions = generateNotFoundMessage(window: window, searchTerm: title)
+            return .failure(error: "Could not find element with title: \(title)\n\n\(suggestions)")
 
         case .byRole(let role):
             let elements = findElements(in: window, role: role)
@@ -110,7 +148,9 @@ public class DSLExecutor {
                 context.currentElement = element
                 return .success(value: element)
             }
-            return .failure(error: "Could not find element with title: \(title) and role: \(role)")
+            // Use suggestion engine
+            let suggestions = generateNotFoundMessage(window: window, searchTerm: title, role: role)
+            return .failure(error: "Could not find element with title: \(title) and role: \(role)\n\n\(suggestions)")
 
         case .byIndex(let index):
             if index >= 0 && index < context.foundElements.count {
@@ -345,5 +385,141 @@ public class DSLExecutor {
             return .success(value: nil)
         }
         return .failure(error: "Failed to set value: \(result.rawValue)")
+    }
+
+    // MARK: - Interactive Mode Helpers
+
+    /// Prompt user before executing command (interactive mode)
+    private func promptForCommand(_ command: Command, index: Int, total: Int) -> Bool {
+        print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("[\(index + 1)/\(total)] Next: \(command)")
+        print("\nCurrent context:")
+        if let window = context.currentWindow {
+            let title = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String ?? "Unknown"
+            print("  Window: \"\(title)\"")
+        } else {
+            print("  Window: (none)")
+        }
+        if context.currentElement != nil {
+            print("  Element: (selected)")
+        } else {
+            print("  Element: (none)")
+        }
+        print("\nOptions:")
+        print("  [c] Continue - Execute this command")
+        print("  [s] Skip     - Skip this command")
+        print("  [i] Inspect  - Show element details")
+        print("  [q] Quit     - Stop execution")
+        print("\nYour choice: ", terminator: "")
+
+        guard let input = readLine()?.lowercased().trimmingCharacters(in: .whitespaces) else {
+            return false
+        }
+
+        switch input {
+        case "c", "continue", "":
+            return true
+        case "s", "skip":
+            return false
+        case "i", "inspect":
+            showInspectionMode()
+            return promptForCommand(command, index: index, total: total) // Re-prompt after inspection
+        case "q", "quit":
+            return false
+        default:
+            print("Invalid choice. Please enter c, s, i, or q.")
+            return promptForCommand(command, index: index, total: total)
+        }
+    }
+
+    /// Prompt user on error (interactive mode)
+    private func promptOnError(error: String, command: Command) -> Bool {
+        print("\nError occurred. Options:")
+        print("  [c] Continue - Continue to next command")
+        print("  [r] Retry    - Retry this command")
+        print("  [q] Quit     - Stop execution")
+        print("\nYour choice: ", terminator: "")
+
+        guard let input = readLine()?.lowercased().trimmingCharacters(in: .whitespaces) else {
+            return false
+        }
+
+        switch input {
+        case "c", "continue":
+            return true
+        case "r", "retry":
+            // Note: Retry not yet implemented, treat as continue
+            print("⚠️  Retry not yet implemented, continuing...")
+            return true
+        case "q", "quit":
+            return false
+        default:
+            print("Invalid choice. Please enter c, r, or q.")
+            return promptOnError(error: error, command: command)
+        }
+    }
+
+    /// Show inspection mode (element tree)
+    private func showInspectionMode() {
+        print("\n🔍 Inspection Mode\n")
+
+        guard let window = context.currentWindow else {
+            print("No window available to inspect.")
+            return
+        }
+
+        let windowTitle = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String ?? "Unknown"
+        print("Window: \"\(windowTitle)\"")
+
+        // Show top-level children
+        if let children = getAttribute(window, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement] {
+            print("\nWindow hierarchy (top 2 levels):")
+            print("└─ \(windowTitle) (AXWindow)")
+
+            for (index, child) in children.prefix(5).enumerated() {
+                let role = getAttribute(child, attribute: kAXRoleAttribute as CFString) as? String ?? "Unknown"
+                let title = getAttribute(child, attribute: kAXTitleAttribute as CFString) as? String
+                let enabled = getAttribute(child, attribute: kAXEnabledAttribute as CFString) as? Bool ?? false
+
+                let prefix = (index == children.count - 1) ? "└─" : "├─"
+                let titleStr = title.map { " \"\($0)\"" } ?? ""
+                let enabledStr = enabled ? " ✓ enabled" : " ✗ disabled"
+
+                print("   \(prefix) \(role)\(titleStr)\(enabledStr)")
+            }
+
+            if children.count > 5 {
+                print("   ... and \(children.count - 5) more")
+            }
+        }
+
+        if let element = context.currentElement {
+            print("\nCurrent element:")
+            printElementInfo(element)
+        } else {
+            print("\nCurrent element: (none)")
+        }
+
+        print("\n[Press Enter to return]")
+        _ = readLine()
+    }
+
+    /// Print error summary (continue mode)
+    private func printErrorSummary(successCount: Int, failureCount: Int, total: Int) {
+        print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("📊 Execution Summary")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("Total commands: \(total)")
+        print("✅ Succeeded: \(successCount)")
+        print("❌ Failed: \(failureCount)")
+
+        if !context.errorLog.isEmpty {
+            print("\nFailed commands:")
+            for error in context.errorLog {
+                print("  [\(error.commandIndex + 1)] \(error.command)")
+                print("      Error: \(error.error)")
+            }
+        }
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
     }
 }
