@@ -52,6 +52,11 @@ public class DSLExecutor {
 
         case .assert(_):
             return .success(value: nil)
+
+        case .mode(let executionMode):
+            context.mode = executionMode
+            print("🔧 Switched to \(executionMode) mode")
+            return .success(value: nil)
         }
     }
 
@@ -118,6 +123,67 @@ public class DSLExecutor {
             let elements = findElements(in: window)
             context.foundElements = elements
             return .success(value: elements)
+
+        case .byState(let role, let state):
+            // Find all elements with specified role
+            let elements = findElements(in: window, role: role)
+
+            // Filter by state attribute
+            var matchingElements: [AXUIElement] = []
+            for element in elements {
+                // Check various state-related attributes
+                let enabled = getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool
+                let focused = getAttribute(element, attribute: kAXFocusedAttribute as CFString) as? Bool
+
+                let stateLower = state.lowercased()
+                if stateLower == "enabled" && enabled == true {
+                    matchingElements.append(element)
+                } else if stateLower == "disabled" && enabled == false {
+                    matchingElements.append(element)
+                } else if stateLower == "focused" && focused == true {
+                    matchingElements.append(element)
+                }
+            }
+
+            if let first = matchingElements.first {
+                context.currentElement = first
+                context.foundElements = matchingElements
+                return .success(value: matchingElements)
+            }
+            return .failure(error: "Could not find elements with role: \(role) and state: \(state)")
+
+        case .byRegex(let pattern):
+            // Find all elements and filter by regex pattern
+            let allElements = findElements(in: window)
+
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+                return .failure(error: "Invalid regex pattern: \(pattern)")
+            }
+
+            var matchingElements: [AXUIElement] = []
+            for element in allElements {
+                // Try matching against multiple text attributes
+                let title = getAttribute(element, attribute: kAXTitleAttribute as CFString) as? String
+                let description = getAttribute(element, attribute: kAXDescriptionAttribute as CFString) as? String
+                let value = getAttribute(element, attribute: kAXValueAttribute as CFString) as? String
+
+                let textsToCheck = [title, description, value].compactMap { $0 }
+
+                for text in textsToCheck {
+                    let range = NSRange(text.startIndex..., in: text)
+                    if regex.firstMatch(in: text, options: [], range: range) != nil {
+                        matchingElements.append(element)
+                        break
+                    }
+                }
+            }
+
+            if let first = matchingElements.first {
+                context.currentElement = first
+                context.foundElements = matchingElements
+                return .success(value: matchingElements)
+            }
+            return .failure(error: "Could not find elements matching pattern: \(pattern)")
         }
     }
 
@@ -132,6 +198,24 @@ public class DSLExecutor {
                 return .success(value: nil)
             }
             return .failure(error: "Click failed - tried all methods")
+
+        case .doubleClick:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if doubleClickElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Double-click failed")
+
+        case .rightClick:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if rightClickElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Right-click failed")
 
         case .type(let text):
             guard let element = context.currentElement else {
@@ -148,6 +232,102 @@ public class DSLExecutor {
         case .wait(let seconds):
             Thread.sleep(forTimeInterval: seconds)
             return .success(value: nil)
+
+        case .scroll(let direction):
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if scrollElement(element, direction: direction) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Scroll failed: \(direction)")
+
+        case .pressKey(let combo):
+            if pressKeyCombo(combo) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Key press failed: \(combo)")
+
+        case .selectMenuItem(let path):
+            guard let window = context.currentWindow else {
+                return .failure(error: "No window available")
+            }
+            if selectMenuItemByPath(in: window, path: path) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Menu selection failed: \(path)")
+
+        case .openMenu(let name):
+            guard let window = context.currentWindow else {
+                return .failure(error: "No window available")
+            }
+            if let _ = openMenu(in: window, name: name) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Menu open failed: \(name)")
+
+        case .increment:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if incrementElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Increment failed")
+
+        case .decrement:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if decrementElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Decrement failed")
+
+        case .focus:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if focusElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Focus failed")
+
+        case .check:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if checkElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Check failed")
+
+        case .uncheck:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if uncheckElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Uncheck failed")
+
+        case .expand:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if expandElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Expand failed")
+
+        case .collapse:
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            if collapseElement(element) {
+                return .success(value: nil)
+            }
+            return .failure(error: "Collapse failed")
         }
     }
 

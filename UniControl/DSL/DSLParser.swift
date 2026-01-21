@@ -50,6 +50,12 @@ public class DSLParser {
         case "click":
             return .perform(action: .click)
 
+        case "doubleclick":
+            return .perform(action: .doubleClick)
+
+        case "rightclick":
+            return .perform(action: .rightClick)
+
         case "type":
             if parts.count >= 2 {
                 let text = parts[1...].joined(separator: " ")
@@ -59,6 +65,67 @@ public class DSLParser {
         case "wait":
             if parts.count >= 2, let seconds = Double(parts[1]) {
                 return .perform(action: .wait(seconds))
+            }
+
+        case "scroll":
+            if parts.count >= 2 {
+                let direction = parts[1]
+                return .perform(action: .scroll(direction: direction))
+            }
+
+        case "presskey":
+            if parts.count >= 2 {
+                let combo = parts[1...].joined(separator: " ")
+                return .perform(action: .pressKey(combo: combo))
+            }
+
+        case "selectmenuitem":
+            if parts.count >= 2 {
+                let path = parts[1...].joined(separator: " ")
+                return .perform(action: .selectMenuItem(path: path))
+            }
+
+        case "openmenu":
+            if parts.count >= 2 {
+                let name = parts[1...].joined(separator: " ")
+                return .perform(action: .openMenu(name: name))
+            }
+
+        case "increment":
+            return .perform(action: .increment)
+
+        case "decrement":
+            return .perform(action: .decrement)
+
+        case "focus":
+            return .perform(action: .focus)
+
+        case "check":
+            return .perform(action: .check)
+
+        case "uncheck":
+            return .perform(action: .uncheck)
+
+        case "expand":
+            return .perform(action: .expand)
+
+        case "collapse":
+            return .perform(action: .collapse)
+
+        case "mode":
+            if parts.count >= 2 {
+                let modeName = parts[1].lowercased()
+                switch modeName {
+                case "strict":
+                    return .mode(.strict)
+                case "continue":
+                    return .mode(.continue)
+                case "interactive":
+                    return .mode(.interactive)
+                default:
+                    print("⚠️  Unknown mode: \(modeName), using continue mode")
+                    return .mode(.continue)
+                }
             }
 
         case "log":
@@ -78,6 +145,21 @@ public class DSLParser {
         if parts.isEmpty { return .all }
 
         let joined = parts.joined(separator: " ")
+
+        // Check for state specification: "role: AXButton state: enabled"
+        if let stateIndex = parts.firstIndex(of: "state:") {
+            if let roleIndex = parts.firstIndex(of: "role:") ?? parts.firstIndex(of: "type:") {
+                let role = parts[(roleIndex + 1)..<stateIndex].joined(separator: " ")
+                let state = parts[(stateIndex + 1)...].joined(separator: " ")
+                return .byState(role: role, state: state)
+            }
+        }
+
+        // Check for regex pattern: "pattern: ^Submit.*"
+        if let patternIndex = parts.firstIndex(of: "pattern:") {
+            let pattern = parts[(patternIndex + 1)...].joined(separator: " ")
+            return .byRegex(pattern: pattern)
+        }
 
         // Check for role specification
         if let roleIndex = parts.firstIndex(of: "role:") ?? parts.firstIndex(of: "type:") {
