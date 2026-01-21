@@ -72,11 +72,22 @@ public func similarityScore(_ s1: String, _ s2: String) -> Double {
         return 1.0
     }
 
-    // Substring match bonus
+    // Substring match bonus (but penalize very short matches)
     if s2Lower.contains(s1Lower) || s1Lower.contains(s2Lower) {
         let longer = max(s1.count, s2.count)
         let shorter = min(s1.count, s2.count)
-        return 0.7 + (0.3 * Double(shorter) / Double(longer))
+
+        // Require shorter string to be at least 40% of longer string
+        // This prevents "E" matching "Check Box" (1/9 = 11%)
+        let lengthRatio = Double(shorter) / Double(longer)
+        if lengthRatio < 0.4 {
+            // Too short - use Levenshtein distance instead
+            let distance = levenshteinDistance(s1, s2)
+            let maxLength = max(s1.count, s2.count)
+            return max(0.0, 1.0 - (Double(distance) / Double(maxLength)))
+        }
+
+        return 0.7 + (0.3 * lengthRatio)
     }
 
     // Levenshtein distance
