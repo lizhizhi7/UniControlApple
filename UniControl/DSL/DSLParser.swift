@@ -161,6 +161,14 @@ public class DSLParser {
             return .byRegex(pattern: pattern)
         }
 
+        // Check for explicit index specification: "index: 5"
+        if let indexKeywordIndex = parts.firstIndex(of: "index:") {
+            let indexStr = parts[(indexKeywordIndex + 1)...].joined(separator: " ")
+            if let index = Int(indexStr) {
+                return .byIndex(index)
+            }
+        }
+
         // Check for role specification
         if let roleIndex = parts.firstIndex(of: "role:") ?? parts.firstIndex(of: "type:") {
             let role = parts[(roleIndex + 1)...].joined(separator: " ")
@@ -173,12 +181,8 @@ public class DSLParser {
             }
         }
 
-        // Check for index
-        if let index = Int(joined) {
-            return .byIndex(index)
-        }
-
-        // Default to title search
+        // Default to title search (including numeric titles like "7", "5", etc.)
+        // This allows finding Calculator buttons and other numeric elements
         return .byTitle(joined)
     }
 }
