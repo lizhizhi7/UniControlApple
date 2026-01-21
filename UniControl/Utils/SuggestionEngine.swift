@@ -202,10 +202,20 @@ public func generateNotFoundMessage(
         // Show element count by role
         let allElements = findElements(in: window)
         var roleCounts: [String: Int] = [:]
+        var buttonTitles: [String] = []
 
         for element in allElements {
             if let elementRole = getAttribute(element, attribute: kAXRoleAttribute as CFString) as? String {
                 roleCounts[elementRole, default: 0] += 1
+
+                // Collect button titles
+                if elementRole == "AXButton" {
+                    if let title = getAttribute(element, attribute: kAXTitleAttribute as CFString) as? String, !title.isEmpty {
+                        buttonTitles.append(title)
+                    } else if let desc = getAttribute(element, attribute: kAXDescriptionAttribute as CFString) as? String, !desc.isEmpty {
+                        buttonTitles.append(desc)
+                    }
+                }
             }
         }
 
@@ -214,6 +224,19 @@ public func generateNotFoundMessage(
             for (role, count) in roleCounts.sorted(by: { $0.value > $1.value }).prefix(5) {
                 output += "\n  - \(role): \(count)"
             }
+        }
+
+        // Show button names if available
+        if !buttonTitles.isEmpty {
+            output += "\n\n📋 Available buttons (\(buttonTitles.count) total):"
+            let displayButtons = buttonTitles.prefix(20)
+            for (index, title) in displayButtons.enumerated() {
+                output += "\n  [\(index)]. \"\(title)\""
+            }
+            if buttonTitles.count > 20 {
+                output += "\n  ... and \(buttonTitles.count - 20) more"
+            }
+            output += "\n\n💡 Use: find <button-name>"
         }
     } else {
         output += formatSuggestions(matches, searchTerm: searchTerm, role: role)
