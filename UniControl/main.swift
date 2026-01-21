@@ -20,7 +20,6 @@ func printUsage() {
 
     Usage:
       UniControl [options] <script-file>
-      UniControl [options]
 
     Options:
       --debug, -d       Enable debug/verbose output (default: on)
@@ -30,13 +29,29 @@ func printUsage() {
 
     Examples:
       # Run script with debug output (default)
-      UniControl examples/test-basic-actions.unictl
+      UniControl examples/example-calculator-simple.unictl
 
       # Run script quietly (minimal output)
-      UniControl --quiet examples/test-basic-actions.unictl
+      UniControl --quiet examples/example-excel-developer-checkbox.unictl
 
       # Run with explicit debug mode
       UniControl --debug examples/test-comprehensive.unictl
+
+    Example Scripts:
+      examples/example-calculator-simple.unictl
+        - Simple Calculator automation (no Excel required)
+        - Good for quick testing
+
+      examples/example-excel-developer-checkbox.unictl
+        - Excel automation: Insert checkbox control
+        - Requires Microsoft Excel
+
+      examples/example-excel-explorer.unictl
+        - Explore available UI elements (debugging tool)
+        - Shows element suggestions
+
+      examples/test-comprehensive.unictl
+        - Full test suite for all UniControl features
 
     Debug Mode:
       When debug mode is enabled (default), you'll see:
@@ -52,9 +67,11 @@ func printUsage() {
       - Critical errors
       - Final success/failure status
 
-    Script Syntax:
-      See examples/ directory for .unictl script examples
-      Documentation: CLAUDE.md and examples/TEST_README.md
+    Documentation:
+      CLAUDE.md                        - Project overview and architecture
+      DEBUG_MODE_GUIDE.md              - Debug mode usage guide
+      ACCESSIBILITY_PERMISSIONS_GUIDE.md - Permission setup guide
+      examples/TEST_README.md          - Testing guide
     """)
 }
 
@@ -62,7 +79,34 @@ func printUsage() {
 func printVersion() {
     print("UniControl v1.0.0")
     print("macOS UI Automation Tool")
-    print("Built with Swift \(#file)")
+    print("https://github.com/yourusername/UniControl")
+}
+
+/// Load and execute DSL script from file
+func executeScriptFromFile(_ filePath: String, verbose: Bool) {
+    guard let scriptContent = try? String(contentsOfFile: filePath) else {
+        print("❌ Error: Could not read file: \(filePath)")
+        exit(1)
+    }
+
+    if verbose {
+        print("Loading script from: \(filePath)\n")
+    }
+
+    let commands = DSLParser.parse(scriptContent)
+    let executor = DSLExecutor()
+
+    if executor.execute(commands, verbose: verbose) {
+        if verbose {
+            print("\n✅ Script executed successfully!")
+        }
+        exit(0)
+    } else {
+        if verbose {
+            print("\n❌ Script execution failed")
+        }
+        exit(1)
+    }
 }
 
 // MARK: - Main Entry Point
@@ -124,8 +168,7 @@ if !checkAccessibilityPermission() {
 
 // Run the script
 if let path = scriptPath {
-    // Load and execute script from file
-    exampleDSLFromFile(path, verbose: verboseMode)
+    executeScriptFromFile(path, verbose: verboseMode)
 } else {
     // No script provided - show help
     print("No script file specified.\n")
