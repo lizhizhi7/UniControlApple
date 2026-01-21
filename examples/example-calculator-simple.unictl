@@ -31,7 +31,7 @@ find 7
 click
 wait 0.3
 
-find +
+find Add
 click
 wait 0.3
 
@@ -39,7 +39,7 @@ find 3
 click
 wait 0.3
 
-find =
+find Equals
 click
 wait 0.5
 
@@ -52,7 +52,7 @@ wait 0.5
 
 # Step 4: Clear and perform second calculation (5 × 4)
 log Step 4: Clearing and calculating 5 × 4
-find C
+find Clear
 click
 wait 0.5
 
@@ -60,7 +60,7 @@ find 5
 click
 wait 0.3
 
-find ×
+find Multiply
 click
 wait 0.3
 
@@ -68,7 +68,7 @@ find 4
 click
 wait 0.3
 
-find =
+find Equals
 click
 wait 0.5
 

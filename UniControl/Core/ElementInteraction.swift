@@ -24,9 +24,11 @@ public func clickElement(_ element: AXUIElement) -> Bool {
 
 /// Click on an element using alternative methods if standard click fails
 public func clickElementWithRetry(_ element: AXUIElement, debug: Bool = false) -> Bool {
-    // Some elements (like Excel templates) work but return error codes because
-    // they become invalid after being clicked (dialog closes, etc.)
-    // Error -25206 (kAXErrorInvalidUIElement) after clicking often means success!
+    // Some elements (like Excel templates, buttons that trigger actions) work but return error codes
+    // because they become invalid/inaccessible after being clicked (dialog closes, state changes, etc.)
+    // Common success-indicating error codes:
+    //   -25206 (kAXErrorInvalidUIElement): Element no longer exists after click - usually means success!
+    //   -25205 (kAXErrorCannotComplete): Action completed but element changed state - often means success!
 
     // Method 1: Standard press
     var result = AXUIElementPerformAction(element, kAXPressAction as CFString)
@@ -34,9 +36,13 @@ public func clickElementWithRetry(_ element: AXUIElement, debug: Bool = false) -
         if debug { print("✅ Clicked using AXPress") }
         return true
     }
-    // -25206 (kAXErrorInvalidUIElement) often means it worked but element is now gone
+    // Check for "successful failure" codes
     if result.rawValue == -25206 {
-        if debug { print("✅ Clicked using AXPress (element invalidated after click - this is normal)") }
+        if debug { print("✅ Clicked using AXPress (element invalidated - action succeeded)") }
+        return true
+    }
+    if result.rawValue == -25205 {
+        if debug { print("✅ Clicked using AXPress (element state changed - action succeeded)") }
         return true
     }
     if debug { print("⚠️  AXPress failed: \(result.rawValue)") }
@@ -48,7 +54,11 @@ public func clickElementWithRetry(_ element: AXUIElement, debug: Bool = false) -
         return true
     }
     if result.rawValue == -25206 {
-        if debug { print("✅ Clicked using AXPick (element invalidated after click - this is normal)") }
+        if debug { print("✅ Clicked using AXPick (element invalidated - action succeeded)") }
+        return true
+    }
+    if result.rawValue == -25205 {
+        if debug { print("✅ Clicked using AXPick (element state changed - action succeeded)") }
         return true
     }
     if debug { print("⚠️  AXPick failed: \(result.rawValue)") }
@@ -60,7 +70,11 @@ public func clickElementWithRetry(_ element: AXUIElement, debug: Bool = false) -
         return true
     }
     if result.rawValue == -25206 {
-        if debug { print("✅ Clicked using AXShowMenu (element invalidated after click - this is normal)") }
+        if debug { print("✅ Clicked using AXShowMenu (element invalidated - action succeeded)") }
+        return true
+    }
+    if result.rawValue == -25205 {
+        if debug { print("✅ Clicked using AXShowMenu (element state changed - action succeeded)") }
         return true
     }
     if debug { print("⚠️  AXShowMenu failed: \(result.rawValue)") }
@@ -72,7 +86,11 @@ public func clickElementWithRetry(_ element: AXUIElement, debug: Bool = false) -
         return true
     }
     if result.rawValue == -25206 {
-        if debug { print("✅ Clicked using AXConfirm (element invalidated after click - this is normal)") }
+        if debug { print("✅ Clicked using AXConfirm (element invalidated - action succeeded)") }
+        return true
+    }
+    if result.rawValue == -25205 {
+        if debug { print("✅ Clicked using AXConfirm (element state changed - action succeeded)") }
         return true
     }
 
