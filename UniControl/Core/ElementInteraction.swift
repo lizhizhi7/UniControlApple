@@ -357,3 +357,144 @@ public func collapseElement(_ element: AXUIElement) -> Bool {
 
 // Define kAXExpandedAttribute if not available
 private let kAXExpandedAttribute = "AXExpanded" as CFString
+
+// MARK: - Coordinate-Based Interactions (Vision Fallback)
+
+/// Click at a specific screen coordinate using CGEvent
+/// - Parameter point: The screen coordinates to click at
+/// - Returns: true if the click event was posted successfully
+public func clickAtCoordinate(point: CGPoint) -> Bool {
+    // Create mouse down event
+    guard let mouseDown = CGEvent(
+        mouseEventSource: nil,
+        mouseType: .leftMouseDown,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    ) else {
+        return false
+    }
+
+    // Create mouse up event
+    guard let mouseUp = CGEvent(
+        mouseEventSource: nil,
+        mouseType: .leftMouseUp,
+        mouseCursorPosition: point,
+        mouseButton: .left
+    ) else {
+        return false
+    }
+
+    // Post events
+    mouseDown.post(tap: .cghidEventTap)
+    Thread.sleep(forTimeInterval: 0.05)  // 50ms delay between down and up
+    mouseUp.post(tap: .cghidEventTap)
+
+    return true
+}
+
+/// Double-click at a specific screen coordinate using CGEvent
+/// - Parameter point: The screen coordinates to double-click at
+/// - Returns: true if the double-click events were posted successfully
+public func doubleClickAtCoordinate(point: CGPoint) -> Bool {
+    // First click
+    guard clickAtCoordinate(point: point) else {
+        return false
+    }
+
+    // Wait between clicks
+    Thread.sleep(forTimeInterval: 0.1)  // 100ms delay
+
+    // Second click
+    guard clickAtCoordinate(point: point) else {
+        return false
+    }
+
+    return true
+}
+
+/// Right-click at a specific screen coordinate using CGEvent
+/// - Parameter point: The screen coordinates to right-click at
+/// - Returns: true if the right-click event was posted successfully
+public func rightClickAtCoordinate(point: CGPoint) -> Bool {
+    // Create mouse down event
+    guard let mouseDown = CGEvent(
+        mouseEventSource: nil,
+        mouseType: .rightMouseDown,
+        mouseCursorPosition: point,
+        mouseButton: .right
+    ) else {
+        return false
+    }
+
+    // Create mouse up event
+    guard let mouseUp = CGEvent(
+        mouseEventSource: nil,
+        mouseType: .rightMouseUp,
+        mouseCursorPosition: point,
+        mouseButton: .right
+    ) else {
+        return false
+    }
+
+    // Post events
+    mouseDown.post(tap: .cghidEventTap)
+    Thread.sleep(forTimeInterval: 0.05)  // 50ms delay between down and up
+    mouseUp.post(tap: .cghidEventTap)
+
+    return true
+}
+
+/// Type text at the current cursor position using CGEvent
+/// - Parameter text: The text to type
+/// - Returns: true if all characters were posted successfully
+public func typeAtCoordinate(text: String) -> Bool {
+    for char in text {
+        // Get key code for character (simplified - only handles basic ASCII)
+        guard let keyCode = getKeyCodeForCharacter(char) else {
+            continue
+        }
+
+        // Create key down event
+        guard let keyDown = CGEvent(
+            keyboardEventSource: nil,
+            virtualKey: keyCode,
+            keyDown: true
+        ) else {
+            return false
+        }
+
+        // Create key up event
+        guard let keyUp = CGEvent(
+            keyboardEventSource: nil,
+            virtualKey: keyCode,
+            keyDown: false
+        ) else {
+            return false
+        }
+
+        // Set the Unicode character
+        keyDown.keyboardSetUnicodeString(stringLength: 1, unicodeString: [UniChar(char.unicodeScalars.first!.value)])
+        keyUp.keyboardSetUnicodeString(stringLength: 1, unicodeString: [UniChar(char.unicodeScalars.first!.value)])
+
+        // Post events
+        keyDown.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.01)  // 10ms delay
+        keyUp.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.01)  // 10ms delay
+    }
+
+    return true
+}
+
+/// Get a virtual key code for a character (basic ASCII only)
+/// - Parameter char: The character to get a key code for
+/// - Returns: Virtual key code, or nil if not mappable
+private func getKeyCodeForCharacter(_ char: Character) -> CGKeyCode? {
+    // This is a simplified version - only handles basic characters
+    // For full text input, we're using keyboardSetUnicodeString above
+    switch char {
+    case "a", "A": return 0x00
+    case " ": return 0x31  // Space
+    default: return 0x00  // Return 'a' as default - the Unicode string will handle the actual character
+    }
+}

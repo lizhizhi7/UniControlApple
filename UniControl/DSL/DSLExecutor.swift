@@ -7,6 +7,8 @@
 
 import Foundation
 import ApplicationServices
+import Vision
+import CoreGraphics
 
 public class DSLExecutor {
     public let context = ExecutionContext()
@@ -130,6 +132,15 @@ public class DSLExecutor {
                 context.currentElement = element
                 return .success(value: element)
             }
+
+            // Try vision fallback if available (macOS 12.3+)
+            if #available(macOS 12.3, *) {
+                let visionResult = tryVisionFallback(searchText: title, verbose: true)
+                if visionResult.isSuccess {
+                    return visionResult
+                }
+            }
+
             // Use suggestion engine
             let suggestions = generateNotFoundMessage(window: window, searchTerm: title)
             return .failure(error: "Could not find element with title: \(title)\n\n\(suggestions)")
@@ -148,6 +159,15 @@ public class DSLExecutor {
                 context.currentElement = element
                 return .success(value: element)
             }
+
+            // Try vision fallback if available (macOS 12.3+)
+            if #available(macOS 12.3, *) {
+                let visionResult = tryVisionFallback(searchText: title, verbose: true)
+                if visionResult.isSuccess {
+                    return visionResult
+                }
+            }
+
             // Use suggestion engine
             let suggestions = generateNotFoundMessage(window: window, searchTerm: title, role: role)
             return .failure(error: "Could not find element with title: \(title) and role: \(role)\n\n\(suggestions)")
@@ -230,6 +250,13 @@ public class DSLExecutor {
     private func executeAction(_ action: Action) -> CommandResult {
         switch action {
         case .click:
+            // Check if we have a vision element (fallback mode)
+            if context.visionElement != nil && context.currentElement == nil {
+                if #available(macOS 12.3, *) {
+                    return executeActionWithVision(action, verbose: true)
+                }
+            }
+
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
@@ -240,6 +267,13 @@ public class DSLExecutor {
             return .failure(error: "Click failed - tried all methods")
 
         case .doubleClick:
+            // Check if we have a vision element (fallback mode)
+            if context.visionElement != nil && context.currentElement == nil {
+                if #available(macOS 12.3, *) {
+                    return executeActionWithVision(action, verbose: true)
+                }
+            }
+
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
@@ -249,6 +283,13 @@ public class DSLExecutor {
             return .failure(error: "Double-click failed")
 
         case .rightClick:
+            // Check if we have a vision element (fallback mode)
+            if context.visionElement != nil && context.currentElement == nil {
+                if #available(macOS 12.3, *) {
+                    return executeActionWithVision(action, verbose: true)
+                }
+            }
+
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
@@ -258,6 +299,13 @@ public class DSLExecutor {
             return .failure(error: "Right-click failed")
 
         case .type(let text):
+            // Check if we have a vision element (fallback mode)
+            if context.visionElement != nil && context.currentElement == nil {
+                if #available(macOS 12.3, *) {
+                    return executeActionWithVision(action, verbose: true)
+                }
+            }
+
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
@@ -521,5 +569,146 @@ public class DSLExecutor {
             }
         }
         print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+    }
+
+    // MARK: - Vision Fallback Methods
+
+    /// Try vision fallback for finding an element by text
+    /// - Parameters:
+    ///   - searchText: The text to search for
+    ///   - verbose: Whether to print debug output
+    /// - Returns: CommandResult with success if found, failure otherwise
+    @available(macOS 12.3, *)
+    private func tryVisionFallback(searchText: String, verbose: Bool) -> CommandResult {
+        guard let window = context.currentWindow else {
+            return .failure(error: "No active window for vision fallback")
+        }
+
+        if verbose {
+            print("🔍 Trying vision fallback (OCR)...")
+        }
+
+        // Capture screenshot
+        guard let screenshot = captureWindowSync(window) else {
+            if verbose {
+                print("❌ Failed to capture screenshot")
+            }
+            return .failure(error: "Screenshot capture failed")
+        }
+
+        // Store screenshot for later verification
+        context.lastScreenshot = screenshot
+
+        // Run OCR to find text
+        let matches = findText(searchText, in: screenshot, fuzzy: true, threshold: 0.6)
+
+        if matches.isEmpty {
+            if verbose {
+                print("❌ Vision fallback found no matches")
+            }
+            return .failure(error: "Element not found via vision fallback")
+        }
+
+        // Use the best match (first in sorted results)
+        let bestMatch = matches[0]
+        let windowOrigin = getWindowOrigin(window)
+
+        // Create VisionElement
+        let visionElement = VisionElement(
+            text: bestMatch.text,
+            boundingBox: bestMatch.boundingBox,
+            confidence: bestMatch.confidence,
+            windowOrigin: windowOrigin
+        )
+
+        context.visionElement = visionElement
+        context.currentElement = nil  // Clear AX element since we're using vision
+
+        if verbose {
+            print("✅ Found via vision: \"\(bestMatch.text)\" (confidence: \(Int(bestMatch.confidence * 100))%)")
+        }
+
+        return .success(value: visionElement)
+    }
+
+    /// Execute action using vision element (coordinate-based)
+    /// - Parameters:
+    ///   - action: The action to perform
+    ///   - verbose: Whether to print debug output
+    /// - Returns: CommandResult with success/failure
+    @available(macOS 12.3, *)
+    private func executeActionWithVision(_ action: Action, verbose: Bool) -> CommandResult {
+        guard let visionElement = context.visionElement else {
+            return .failure(error: "No vision element available")
+        }
+
+        // Get click coordinates
+        let clickPoint = visionElement.screenCenter
+
+        if verbose {
+            print("🎯 Using vision coordinates: (\(Int(clickPoint.x)), \(Int(clickPoint.y)))")
+        }
+
+        // Capture before screenshot for verification
+        let beforeScreenshot = context.lastScreenshot
+
+        // Perform action based on type
+        var success = false
+        switch action {
+        case .click:
+            success = clickAtCoordinate(point: clickPoint)
+
+        case .doubleClick:
+            success = doubleClickAtCoordinate(point: clickPoint)
+
+        case .rightClick:
+            success = rightClickAtCoordinate(point: clickPoint)
+
+        case .type(let text):
+            // First click to focus, then type
+            if clickAtCoordinate(point: clickPoint) {
+                Thread.sleep(forTimeInterval: 0.2)
+                success = typeAtCoordinate(text: text)
+            }
+
+        default:
+            return .failure(error: "Action \(action) not supported with vision fallback")
+        }
+
+        if !success {
+            return .failure(error: "Failed to execute action via coordinates")
+        }
+
+        // Verify by capturing after screenshot
+        Thread.sleep(forTimeInterval: 0.5)  // Wait for UI update
+        if let window = context.currentWindow,
+           let afterScreenshot = captureWindowSync(window) {
+
+            // Compare screenshots to verify action had effect
+            if let beforeImage = beforeScreenshot {
+                let similarity = compareImages(beforeImage, afterScreenshot)
+
+                if verbose {
+                    print("📊 Screenshot similarity: \(Int(similarity * 100))%")
+                }
+
+                // If images are very different, action likely succeeded
+                if similarity < 0.95 {
+                    if verbose {
+                        print("✅ Action verified (UI changed)")
+                    }
+                    return .success(value: nil)
+                } else {
+                    if verbose {
+                        print("⚠️  Warning: UI may not have changed")
+                    }
+                    // Still return success since action was performed
+                    return .success(value: nil)
+                }
+            }
+        }
+
+        // Couldn't verify but action was performed
+        return .success(value: nil)
     }
 }

@@ -69,6 +69,29 @@ public enum CommandResult {
     }
 }
 
+/// Vision-detected element (from OCR fallback)
+public struct VisionElement {
+    public let text: String
+    public let boundingBox: CGRect
+    public let confidence: Float
+    public let windowOrigin: CGPoint
+
+    public init(text: String, boundingBox: CGRect, confidence: Float, windowOrigin: CGPoint) {
+        self.text = text
+        self.boundingBox = boundingBox
+        self.confidence = confidence
+        self.windowOrigin = windowOrigin
+    }
+
+    /// Get screen coordinates of the center of this element
+    public var screenCenter: CGPoint {
+        return CGPoint(
+            x: windowOrigin.x + boundingBox.origin.x + boundingBox.width / 2,
+            y: windowOrigin.y + boundingBox.origin.y + boundingBox.height / 2
+        )
+    }
+}
+
 /// Context for executing commands
 public class ExecutionContext {
     public var currentWindow: AXUIElement?
@@ -77,6 +100,8 @@ public class ExecutionContext {
     public var variables: [String: Any] = [:]
     public var mode: ExecutionMode = .continue  // Default to continue mode
     public var errorLog: [(commandIndex: Int, command: String, error: String)] = []
+    public var visionElement: VisionElement?  // Vision fallback element
+    public var lastScreenshot: CGImage?  // Store last captured screenshot
 
     public init() {}
 
@@ -87,5 +112,7 @@ public class ExecutionContext {
         variables = [:]
         mode = .continue
         errorLog = []
+        visionElement = nil
+        lastScreenshot = nil
     }
 }
