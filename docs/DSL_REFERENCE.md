@@ -2,16 +2,9 @@
 
 UniControl provides a domain-specific language (DSL) for automating macOS applications using the Accessibility APIs. Scripts can be written in text files (`.unictl` extension) or constructed programmatically in Swift.
 
-## Quick Start
+For information on how to run scripts (CLI, interactive mode, server mode), see [Running Modes](RUNNING_MODES.md).
 
-### Running a Script
-
-```bash
-# Run a script file
-./UniControl path/to/script.unictl
-
-# Scripts are executed line by line with status output
-```
+## Script Syntax
 
 ### Basic Script Structure
 
@@ -579,5 +572,6 @@ if let value = executor.context.variables["myVar"] as? String {
 
 ## See Also
 
+- [Running Modes](RUNNING_MODES.md) - CLI, interactive, and server modes
 - [Extension System Guide](EXTENSION_SYSTEM.md) - Creating custom DSL extensions
 - [Excel Extension](extensions/EXCEL_EXTENSION.md) - Excel-specific commands
