@@ -166,6 +166,9 @@ if !checkAccessibilityPermission() {
     exit(1)
 }
 
+// Register DSL extensions
+ExtensionRegistry.shared.register(ExcelExtension.self)
+
 // Run the script
 if let path = scriptPath {
     executeScriptFromFile(path, verbose: verboseMode)

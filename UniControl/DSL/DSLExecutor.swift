@@ -117,7 +117,14 @@ public class DSLExecutor {
             context.mode = executionMode
             print("🔧 Switched to \(executionMode) mode")
             return .success(value: nil)
+
+        case .custom(let extensionCommand):
+            return executeCustomCommand(extensionCommand)
         }
+    }
+
+    private func executeCustomCommand(_ command: ExtensionCommand) -> CommandResult {
+        return ExtensionRegistry.shared.execute(command, context: context, verbose: true)
     }
 
     private func executeLaunch(_ appName: String) -> CommandResult {

@@ -49,6 +49,7 @@ public enum Command {
     case assert(condition: String)
     case log(message: String)
     case mode(ExecutionMode)
+    case custom(ExtensionCommand)
 }
 
 /// Execution mode for error handling

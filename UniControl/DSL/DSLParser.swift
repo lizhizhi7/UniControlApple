@@ -135,7 +135,12 @@ public class DSLParser {
             }
 
         default:
-            break
+            // Check if an extension can handle this verb
+            if ExtensionRegistry.shared.canHandle(verb: verb) {
+                if let extCmd = ExtensionRegistry.shared.parse(line, verb: verb, parts: parts) {
+                    return .custom(extCmd)
+                }
+            }
         }
 
         return nil
