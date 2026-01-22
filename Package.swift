@@ -9,9 +9,13 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
+        .library(
+            name: "UniControlCore",
+            targets: ["UniControlCore"]
+        ),
         .executable(
             name: "UniControl",
-            targets: ["UniControl"]
+            targets: ["UniControlCLI"]
         )
     ],
     dependencies: [
@@ -19,13 +23,18 @@ let package = Package(
         .package(url: "https://github.com/hummingbird-project/hummingbird-websocket.git", from: "2.0.0"),
     ],
     targets: [
-        .executableTarget(
-            name: "UniControl",
+        .target(
+            name: "UniControlCore",
             dependencies: [
                 .product(name: "Hummingbird", package: "hummingbird"),
                 .product(name: "HummingbirdWebSocket", package: "hummingbird-websocket"),
             ],
-            path: "UniControl"
+            path: "Sources/UniControlCore"
+        ),
+        .executableTarget(
+            name: "UniControlCLI",
+            dependencies: ["UniControlCore"],
+            path: "Sources/UniControlCLI"
         )
     ]
 )
