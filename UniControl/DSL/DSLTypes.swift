@@ -103,6 +103,7 @@ public class ExecutionContext {
     public var errorLog: [(commandIndex: Int, command: String, error: String)] = []
     public var visionElement: VisionElement?  // Vision fallback element
     public var lastScreenshot: CGImage?  // Store last captured screenshot
+    public var outputCapture: OutputCapture?  // Server mode output capture
 
     public init() {}
 

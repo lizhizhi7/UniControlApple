@@ -15,6 +15,35 @@ public class DSLExecutor {
 
     public init() {}
 
+    // MARK: - Output Helpers
+
+    /// Output a message - routes to outputCapture if in server mode, otherwise prints
+    private func output(_ message: String, level: LogLevel = .info) {
+        if let capture = context.outputCapture {
+            capture.log(message, level: level)
+        } else {
+            let prefix: String
+            switch level {
+            case .info:
+                prefix = ""
+            case .success:
+                prefix = "✓ "
+            case .error:
+                prefix = "❌ "
+            case .warning:
+                prefix = "⚠️ "
+            case .debug:
+                prefix = "🔍 "
+            }
+            print("\(prefix)\(message)")
+        }
+    }
+
+    /// Record a command result for server mode
+    private func recordResult(_ index: Int, command: String, result: CommandResult) {
+        context.outputCapture?.recordResult(index, command: command, result: result)
+    }
+
     /// Refresh the current window reference if it has changed
     /// This is important after actions that cause window changes (like clicking templates)
     private func refreshCurrentWindowIfNeeded() {
@@ -45,16 +74,19 @@ public class DSLExecutor {
             // Interactive mode: prompt before each command
             if context.mode == .interactive {
                 if !promptForCommand(command, index: index, total: commands.count) {
-                    print("⏭️  Skipped command")
+                    output("Skipped command", level: .info)
                     continue
                 }
             }
 
             if verbose {
-                print("[\(index + 1)/\(commands.count)] Executing: \(command)")
+                output("[\(index + 1)/\(commands.count)] Executing: \(command)", level: .info)
             }
 
             let result = executeCommand(command, index: index)
+
+            // Record result for server mode
+            recordResult(index, command: "\(command)", result: result)
 
             if case .failure(let error) = result {
                 failureCount += 1
@@ -62,19 +94,19 @@ public class DSLExecutor {
                 // Log error for continue mode
                 if context.mode == .continue {
                     context.errorLog.append((commandIndex: index, command: "\(command)", error: error))
-                    print("❌ Error: \(error)")
+                    output("Error: \(error)", level: .error)
                     // Continue to next command
                 } else if context.mode == .strict {
                     // Stop immediately
-                    print("❌ Error: \(error)")
-                    print("🛑 Stopped execution (strict mode)")
+                    output("Error: \(error)", level: .error)
+                    output("Stopped execution (strict mode)", level: .error)
                     printErrorSummary(successCount: successCount, failureCount: failureCount + 1, total: commands.count)
                     return false
                 } else if context.mode == .interactive {
                     // Interactive mode: prompt on error
-                    print("❌ Error: \(error)")
+                    output("Error: \(error)", level: .error)
                     if !promptOnError(error: error, command: command) {
-                        print("🛑 User chose to quit")
+                        output("User chose to quit", level: .error)
                         printErrorSummary(successCount: successCount, failureCount: failureCount + 1, total: commands.count)
                         return false
                     }
@@ -82,7 +114,7 @@ public class DSLExecutor {
             } else {
                 successCount += 1
                 if verbose {
-                    print("✓ Success")
+                    output("Success", level: .success)
                 }
             }
         }
@@ -107,7 +139,7 @@ public class DSLExecutor {
             return executeAction(action)
 
         case .log(let message):
-            print("📝 \(message)")
+            output(message, level: .info)
             return .success(value: nil)
 
         case .assert(_):
@@ -115,7 +147,7 @@ public class DSLExecutor {
 
         case .mode(let executionMode):
             context.mode = executionMode
-            print("🔧 Switched to \(executionMode) mode")
+            output("Switched to \(executionMode) mode", level: .info)
             return .success(value: nil)
 
         case .custom(let extensionCommand):
@@ -603,21 +635,21 @@ public class DSLExecutor {
 
     /// Print error summary (continue mode)
     private func printErrorSummary(successCount: Int, failureCount: Int, total: Int) {
-        print("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("📊 Execution Summary")
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("Total commands: \(total)")
-        print("✅ Succeeded: \(successCount)")
-        print("❌ Failed: \(failureCount)")
+        output("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", level: .info)
+        output("Execution Summary", level: .info)
+        output("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", level: .info)
+        output("Total commands: \(total)", level: .info)
+        output("Succeeded: \(successCount)", level: .success)
+        output("Failed: \(failureCount)", level: .error)
 
         if !context.errorLog.isEmpty {
-            print("\nFailed commands:")
+            output("Failed commands:", level: .error)
             for error in context.errorLog {
-                print("  [\(error.commandIndex + 1)] \(error.command)")
-                print("      Error: \(error.error)")
+                output("  [\(error.commandIndex + 1)] \(error.command)", level: .error)
+                output("      Error: \(error.error)", level: .error)
             }
         }
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+        output("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", level: .info)
     }
 
     // MARK: - Vision Fallback Methods
@@ -634,13 +666,13 @@ public class DSLExecutor {
         }
 
         if verbose {
-            print("🔍 Trying vision fallback (OCR)...")
+            output("Trying vision fallback (OCR)...", level: .debug)
         }
 
         // Capture screenshot
         guard let screenshot = captureWindowSync(window) else {
             if verbose {
-                print("❌ Failed to capture screenshot")
+                output("Failed to capture screenshot", level: .error)
             }
             return .failure(error: "Screenshot capture failed")
         }
@@ -653,7 +685,7 @@ public class DSLExecutor {
 
         if matches.isEmpty {
             if verbose {
-                print("❌ Vision fallback found no matches")
+                output("Vision fallback found no matches", level: .error)
             }
             return .failure(error: "Element not found via vision fallback")
         }
@@ -674,7 +706,7 @@ public class DSLExecutor {
         context.currentElement = nil  // Clear AX element since we're using vision
 
         if verbose {
-            print("✅ Found via vision: \"\(bestMatch.text)\" (confidence: \(Int(bestMatch.confidence * 100))%)")
+            output("Found via vision: \"\(bestMatch.text)\" (confidence: \(Int(bestMatch.confidence * 100))%)", level: .success)
         }
 
         return .success(value: visionElement)
@@ -695,7 +727,7 @@ public class DSLExecutor {
         let clickPoint = visionElement.screenCenter
 
         if verbose {
-            print("🎯 Using vision coordinates: (\(Int(clickPoint.x)), \(Int(clickPoint.y)))")
+            output("Using vision coordinates: (\(Int(clickPoint.x)), \(Int(clickPoint.y)))", level: .debug)
         }
 
         // Capture before screenshot for verification
@@ -738,18 +770,18 @@ public class DSLExecutor {
                 let similarity = compareImages(beforeImage, afterScreenshot)
 
                 if verbose {
-                    print("📊 Screenshot similarity: \(Int(similarity * 100))%")
+                    output("Screenshot similarity: \(Int(similarity * 100))%", level: .debug)
                 }
 
                 // If images are very different, action likely succeeded
                 if similarity < 0.95 {
                     if verbose {
-                        print("✅ Action verified (UI changed)")
+                        output("Action verified (UI changed)", level: .success)
                     }
                     return .success(value: nil)
                 } else {
                     if verbose {
-                        print("⚠️  Warning: UI may not have changed")
+                        output("Warning: UI may not have changed", level: .warning)
                     }
                     // Still return success since action was performed
                     return .success(value: nil)
