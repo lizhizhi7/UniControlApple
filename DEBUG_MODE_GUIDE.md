@@ -4,9 +4,9 @@
 
 UniControl now has built-in command-line options for controlling debug output!
 
-### Enable Debug Mode (Default)
+### Quiet Mode (Default)
 
-Debug mode is **ON by default**. Just run your script normally:
+Quiet mode is **ON by default**. Just run your script normally:
 
 ```bash
 ./build/Debug/UniControl examples/test-basic-actions.unictl
@@ -15,26 +15,26 @@ Debug mode is **ON by default**. Just run your script normally:
 Or explicitly enable it:
 
 ```bash
-./build/Debug/UniControl --debug examples/test-basic-actions.unictl
-# or short form:
-./build/Debug/UniControl -d examples/test-basic-actions.unictl
-```
-
-### Disable Debug Mode (Quiet)
-
-Run in quiet mode for minimal output:
-
-```bash
 ./build/Debug/UniControl --quiet examples/test-basic-actions.unictl
 # or short form:
 ./build/Debug/UniControl -q examples/test-basic-actions.unictl
+```
+
+### Enable Debug Mode
+
+Run in debug mode for verbose output:
+
+```bash
+./build/Debug/UniControl --debug examples/test-basic-actions.unictl
+# or short form:
+./build/Debug/UniControl -d examples/test-basic-actions.unictl
 ```
 
 ---
 
 ## What You See in Each Mode
 
-### Debug Mode (--debug or default)
+### Debug Mode (--debug)
 
 When debug mode is enabled, you'll see detailed output:
 
@@ -138,7 +138,7 @@ Done!
 ./build/Debug/UniControl --version
 ./build/Debug/UniControl -v
 
-# Debug mode (verbose, on by default)
+# Debug mode (verbose output)
 ./build/Debug/UniControl --debug script.unictl
 ./build/Debug/UniControl -d script.unictl
 
@@ -163,7 +163,7 @@ Flags can come before or after the script path:
 
 ### When to Use Debug Mode
 
-**Use `--debug` (or default) when:**
+**Use `--debug` when:**
 - Developing and testing new scripts
 - Troubleshooting why a script isn't working
 - Learning how UniControl works
@@ -261,13 +261,13 @@ Debug mode (`--debug` / `--quiet`) is **separate** from DSL execution modes:
 - `mode interactive` - Pause and prompt
 
 ### CLI Debug Flag
-- `--debug` - Show detailed output (default)
+- `--debug` - Show detailed output
 - `--quiet` - Show minimal output
 
 **They work together:**
 
 ```bash
-# Debug mode + Continue mode (default + default)
+# Debug mode + Continue mode
 ./build/Debug/UniControl examples/test.unictl
 # Shows: Detailed output + Error summary at end
 
@@ -359,9 +359,9 @@ Then run with debug to see which stage fails:
 
 ### Debug Output Not Showing
 
-**Problem**: Running with default but not seeing debug output
+**Problem**: Not seeing debug output
 
-**Solution**: Debug is on by default. If not seeing output:
+**Solution**: Debug mode must be explicitly enabled with `--debug`. If not seeing output:
 1. Check if script is actually running: `echo $?` after running
 2. Try explicit flag: `./build/Debug/UniControl --debug script.unictl`
 3. Check if output is being redirected
@@ -394,9 +394,9 @@ Then run with debug to see which stage fails:
 
 | Mode | Flag | Output Level | Use Case |
 |------|------|--------------|----------|
-| **Debug** | `--debug`, `-d` (default) | Detailed | Development, troubleshooting |
+| **Debug** | `--debug`, `-d` | Detailed | Development, troubleshooting |
 | **Quiet** | `--quiet`, `-q` | Minimal | Production, clean logs |
 
 **Default behavior**: Debug mode is ON - you get helpful output without asking for it!
 
-**When in doubt**: Use the default (debug mode). It's designed to be helpful without being overwhelming.
+**When in doubt**: Use `--debug` for troubleshooting. It's designed to be helpful without being overwhelming.

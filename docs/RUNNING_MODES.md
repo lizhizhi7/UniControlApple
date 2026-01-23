@@ -10,8 +10,8 @@ UniControl --interactive, -i
 UniControl --serve [port]
 
 Options:
-  --debug, -d       Enable debug/verbose output (default: on)
-  --quiet, -q       Disable verbose output
+  --debug, -d       Enable debug/verbose output
+  --quiet, -q       Disable verbose output (default)
   --interactive, -i Start interactive REPL mode
   --serve [port]    Start HTTP/WebSocket server (default port: 8080)
   --help, -h        Show help message
@@ -25,29 +25,29 @@ Run a `.unictl` script file directly from the command line.
 ### Usage
 
 ```bash
-# Run a script with default debug output
+# Run a script with default quiet output
 ./UniControl path/to/script.unictl
 
-# Run quietly (minimal output)
-./UniControl --quiet script.unictl
-
-# Run with explicit debug mode
+# Run with debug mode (verbose output)
 ./UniControl --debug script.unictl
+
+# Run quietly (explicit, same as default)
+./UniControl --quiet script.unictl
 ```
 
 ### Output
 
-With debug mode enabled (default), you'll see:
+With quiet mode (default), you'll only see:
+- Explicit `log` commands from your script
+- Critical errors
+- Final success/failure status
+
+With debug mode enabled, you'll see:
 - Command execution progress: `[1/10]`, `[2/10]`, etc.
 - Success/failure indicators
 - Vision fallback activation messages
 - Element suggestions when searches fail
 - Error summaries at the end
-
-With quiet mode, you'll only see:
-- Explicit `log` commands from your script
-- Critical errors
-- Final success/failure status
 
 ### Exit Behavior
 

@@ -117,11 +117,11 @@ These scripts test specific UniControl features. See `TEST_README.md` for detail
 ### Basic Usage
 
 ```bash
-# Run with debug output (default)
+# Run with quiet output (default)
 ./build/Debug/UniControl examples/example-calculator-simple.unictl
 
-# Run quietly (minimal output)
-./build/Debug/UniControl --quiet examples/example-excel-developer-checkbox.unictl
+# Run with debug output (verbose)
+./build/Debug/UniControl --debug examples/example-excel-developer-checkbox.unictl
 
 # Show help
 ./build/Debug/UniControl --help

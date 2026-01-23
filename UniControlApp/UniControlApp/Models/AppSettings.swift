@@ -10,7 +10,7 @@ import UniControlCore
 
 struct AppSettings: Codable, Equatable {
     var executionMode: ExecutionModeOption = .continue
-    var logLevel: LogLevelOption = .debug
+    var logLevel: LogLevelOption = .quiet
     var serverPort: Int = 8080
     var autoStartServer: Bool = true
     var maxHistoryItems: Int = 100

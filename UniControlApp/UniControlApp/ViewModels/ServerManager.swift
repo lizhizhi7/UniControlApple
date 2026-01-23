@@ -61,7 +61,7 @@ class ServerManager: @unchecked Sendable {
     var onExecutionCompleted: ((UUID, ExecuteResponse) -> Void)?
 
     /// Configuration
-    var verboseLogging: Bool = true
+    var verboseLogging: Bool = false
     var defaultExecutionMode: ExecutionMode = .continue
 
     func start(port: Int) {
