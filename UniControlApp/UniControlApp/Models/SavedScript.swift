@@ -7,6 +7,29 @@
 
 import Foundation
 
+/// Simplified command result for storage (avoids bloating storage with full structured data)
+struct StoredCommandResult: Identifiable, Codable {
+    let id: UUID
+    let index: Int
+    let command: String
+    let status: String  // "success" or "failure"
+    let error: String?
+    let value: String?
+
+    init(id: UUID = UUID(), index: Int, command: String, status: String, error: String? = nil, value: String? = nil) {
+        self.id = id
+        self.index = index
+        self.command = command
+        self.status = status
+        self.error = error
+        self.value = value
+    }
+
+    var isSuccess: Bool {
+        status == "success"
+    }
+}
+
 /// A saved script with version history
 struct SavedScript: Identifiable, Codable {
     let id: UUID
@@ -40,8 +63,9 @@ struct SavedScript: Identifiable, Codable {
         var commandsFailed: Int
         var duration: TimeInterval?
         var isRemote: Bool  // true if executed via remote HTTP request
+        var commandResults: [StoredCommandResult]  // Detailed results for each command
 
-        init(id: UUID = UUID(), versionId: UUID? = nil, sessionId: UUID = UUID(), executedAt: Date = Date(), success: Bool? = nil, commandsExecuted: Int = 0, commandsFailed: Int = 0, duration: TimeInterval? = nil, isRemote: Bool = false) {
+        init(id: UUID = UUID(), versionId: UUID? = nil, sessionId: UUID = UUID(), executedAt: Date = Date(), success: Bool? = nil, commandsExecuted: Int = 0, commandsFailed: Int = 0, duration: TimeInterval? = nil, isRemote: Bool = false, commandResults: [StoredCommandResult] = []) {
             self.id = id
             self.versionId = versionId
             self.sessionId = sessionId
@@ -51,9 +75,10 @@ struct SavedScript: Identifiable, Codable {
             self.commandsFailed = commandsFailed
             self.duration = duration
             self.isRemote = isRemote
+            self.commandResults = commandResults
         }
 
-        // Custom decoding to handle missing isRemote field (backward compatibility)
+        // Custom decoding to handle missing fields (backward compatibility)
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             id = try container.decode(UUID.self, forKey: .id)
@@ -65,10 +90,11 @@ struct SavedScript: Identifiable, Codable {
             commandsFailed = try container.decode(Int.self, forKey: .commandsFailed)
             duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
             isRemote = try container.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
+            commandResults = try container.decodeIfPresent([StoredCommandResult].self, forKey: .commandResults) ?? []
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, versionId, sessionId, executedAt, success, commandsExecuted, commandsFailed, duration, isRemote
+            case id, versionId, sessionId, executedAt, success, commandsExecuted, commandsFailed, duration, isRemote, commandResults
         }
 
         var statusIcon: String {
@@ -147,7 +173,7 @@ struct SavedScript: Identifiable, Codable {
     }
 
     /// Record an execution
-    mutating func recordExecution(versionId: UUID?, sessionId: UUID, success: Bool?, commandsExecuted: Int, commandsFailed: Int, duration: TimeInterval?, isRemote: Bool = false) {
+    mutating func recordExecution(versionId: UUID?, sessionId: UUID, success: Bool?, commandsExecuted: Int, commandsFailed: Int, duration: TimeInterval?, isRemote: Bool = false, commandResults: [StoredCommandResult] = []) {
         let execution = VersionExecution(
             versionId: versionId,
             sessionId: sessionId,
@@ -156,7 +182,8 @@ struct SavedScript: Identifiable, Codable {
             commandsExecuted: commandsExecuted,
             commandsFailed: commandsFailed,
             duration: duration,
-            isRemote: isRemote
+            isRemote: isRemote,
+            commandResults: commandResults
         )
         executionHistory.insert(execution, at: 0)
         lastExecutedAt = execution.executedAt

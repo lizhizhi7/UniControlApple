@@ -71,12 +71,24 @@ class AppState {
     }
 
     private func handleExecutionCompleted(id: UUID, response: ExecuteResponse) {
+        // Convert CommandExecutionResult to StoredCommandResult (simplified for storage)
+        let storedResults = response.results.map { result in
+            StoredCommandResult(
+                index: result.index,
+                command: result.command,
+                status: result.status,
+                error: result.error,
+                value: result.value
+            )
+        }
+
         // Update script library with execution results
         scriptLibrary.handleExecutionCompleted(
             executionId: id,
             success: response.success,
             commandsExecuted: response.commandsExecuted,
-            commandsFailed: response.commandsFailed
+            commandsFailed: response.commandsFailed,
+            commandResults: storedResults
         )
     }
 }

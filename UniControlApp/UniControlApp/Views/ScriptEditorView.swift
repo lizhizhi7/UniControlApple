@@ -15,6 +15,7 @@ struct ScriptEditorView: View {
     @State private var showVersionHistory = false
     @State private var newScriptName = ""
     @State private var historyExpanded = true
+    @State private var selectedExecutionId: UUID?
 
     private var scriptLibrary: ScriptLibrary {
         appState.scriptLibrary
@@ -259,6 +260,24 @@ struct ScriptEditorView: View {
 
     private var executionHistoryPanel: some View {
         VStack(spacing: 0) {
+            if let executionId = selectedExecutionId,
+               let script = scriptLibrary.selectedScript,
+               let execution = script.executionHistory.first(where: { $0.id == executionId }) {
+                // Detail view
+                ExecutionDetailView(
+                    execution: execution,
+                    versionName: versionName(for: execution.versionId, in: script),
+                    onBack: { withAnimation { selectedExecutionId = nil } }
+                )
+            } else {
+                // List view
+                executionHistoryListView
+            }
+        }
+    }
+
+    private var executionHistoryListView: some View {
+        VStack(spacing: 0) {
             // Header (clickable to expand/collapse)
             Button(action: { withAnimation { historyExpanded.toggle() } }) {
                 HStack {
@@ -311,7 +330,10 @@ struct ScriptEditorView: View {
                                 ForEach(script.executionHistory) { execution in
                                     ExecutionHistoryRow(
                                         execution: execution,
-                                        versionName: versionName(for: execution.versionId, in: script)
+                                        versionName: versionName(for: execution.versionId, in: script),
+                                        onSelect: {
+                                            withAnimation { selectedExecutionId = execution.id }
+                                        }
                                     )
                                     Divider()
                                 }
@@ -430,71 +452,76 @@ struct ScriptListRow: View {
 struct ExecutionHistoryRow: View {
     let execution: SavedScript.VersionExecution
     let versionName: String?
+    var onSelect: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: execution.statusIcon)
-                .foregroundStyle(statusColor)
-                .font(.caption)
+        Button(action: { onSelect?() }) {
+            HStack(spacing: 8) {
+                Image(systemName: execution.statusIcon)
+                    .foregroundStyle(statusColor)
+                    .font(.caption)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(formatTime(execution.executedAt))
-                        .font(.caption)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(formatTime(execution.executedAt))
+                            .font(.caption)
 
-                    if execution.isRemote {
-                        Label("Remote", systemImage: "network")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(3)
+                        if execution.isRemote {
+                            Label("Remote", systemImage: "network")
+                                .font(.caption2)
+                                .foregroundStyle(.blue)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(3)
+                        }
+
+                        if let version = versionName {
+                            Text(version)
+                                .font(.caption2)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color(.controlBackgroundColor))
+                                .cornerRadius(3)
+                        }
                     }
 
-                    if let version = versionName {
-                        Text(version)
-                            .font(.caption2)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color(.controlBackgroundColor))
-                            .cornerRadius(3)
+                    HStack(spacing: 8) {
+                        if execution.commandsExecuted > 0 {
+                            Label("\(execution.commandsExecuted)", systemImage: "checkmark.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
+                        if execution.commandsFailed > 0 {
+                            Label("\(execution.commandsFailed)", systemImage: "xmark.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.red)
+                        }
+                        if let duration = execution.duration {
+                            Text(formatDuration(duration))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
 
-                HStack(spacing: 8) {
-                    if execution.commandsExecuted > 0 {
-                        Label("\(execution.commandsExecuted)", systemImage: "checkmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.green)
-                    }
-                    if execution.commandsFailed > 0 {
-                        Label("\(execution.commandsFailed)", systemImage: "xmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                    }
-                    if let duration = execution.duration {
-                        Text(formatDuration(duration))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                Spacer()
+
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(execution.sessionId.uuidString, forType: .string)
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption2)
                 }
+                .buttonStyle(.borderless)
+                .help("Copy Session ID")
             }
-
-            Spacer()
-
-            Button(action: {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(execution.sessionId.uuidString, forType: .string)
-            }) {
-                Image(systemName: "doc.on.doc")
-                    .font(.caption2)
-            }
-            .buttonStyle(.borderless)
-            .help("Copy Session ID")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .buttonStyle(.plain)
     }
 
     private var statusColor: Color {
@@ -524,6 +551,188 @@ struct ExecutionHistoryRow: View {
             let seconds = Int(duration) % 60
             return "\(minutes)m \(seconds)s"
         }
+    }
+}
+
+// MARK: - Execution Detail View
+
+struct ExecutionDetailView: View {
+    let execution: SavedScript.VersionExecution
+    let versionName: String?
+    let onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header with back button
+            HStack {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption)
+                        Text("Back to History")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.borderless)
+
+                Spacer()
+
+                Text(formatTime(execution.executedAt))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if execution.isRemote {
+                    Label("Remote", systemImage: "network")
+                        .font(.caption2)
+                        .foregroundStyle(.blue)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(3)
+                }
+
+                if let version = versionName {
+                    Text(version)
+                        .font(.caption2)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color(.controlBackgroundColor))
+                        .cornerRadius(3)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(.controlBackgroundColor))
+
+            Divider()
+
+            // Summary stats
+            HStack(spacing: 12) {
+                if execution.commandsExecuted > 0 {
+                    Label("\(execution.commandsExecuted) succeeded", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+                if execution.commandsFailed > 0 {
+                    Label("\(execution.commandsFailed) failed", systemImage: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+                if let duration = execution.duration {
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    Text(formatDuration(duration))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Command results list
+            if execution.commandResults.isEmpty {
+                VStack {
+                    Text("No command details available")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("(Execution from before UI update)")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.vertical, 20)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(execution.commandResults) { result in
+                            CommandResultRow(result: result)
+                            if result.id != execution.commandResults.last?.id {
+                                Divider()
+                                    .padding(.leading, 32)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .frame(maxHeight: 200)
+            }
+        }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+        formatter.dateStyle = .none
+        return formatter.string(from: date)
+    }
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        if duration < 1 {
+            return String(format: "%.0fms", duration * 1000)
+        } else if duration < 60 {
+            return String(format: "%.1fs", duration)
+        } else {
+            let minutes = Int(duration / 60)
+            let seconds = Int(duration) % 60
+            return "\(minutes)m \(seconds)s"
+        }
+    }
+}
+
+// MARK: - Command Result Row
+
+struct CommandResultRow: View {
+    let result: StoredCommandResult
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            // Index and status
+            HStack(spacing: 4) {
+                Text("\(result.index + 1).")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, alignment: .trailing)
+
+                Image(systemName: result.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(result.isSuccess ? .green : .red)
+                    .font(.caption)
+            }
+
+            // Command and result/error
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.command)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(2)
+
+                if let error = result.error {
+                    HStack(alignment: .top, spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption2)
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                } else if let value = result.value, !value.isEmpty {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text("→")
+                            .foregroundStyle(.secondary)
+                            .font(.caption2)
+                        Text(value)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
 }
 

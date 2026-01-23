@@ -310,7 +310,7 @@ class ScriptLibrary {
     }
 
     /// Called when an execution completes
-    func handleExecutionCompleted(executionId: UUID, success: Bool, commandsExecuted: Int, commandsFailed: Int) {
+    func handleExecutionCompleted(executionId: UUID, success: Bool, commandsExecuted: Int, commandsFailed: Int, commandResults: [StoredCommandResult] = []) {
         guard let pending = pendingExecutions.removeValue(forKey: executionId) else { return }
         guard let index = scripts.firstIndex(where: { $0.id == pending.scriptId }) else { return }
 
@@ -324,7 +324,8 @@ class ScriptLibrary {
             commandsExecuted: commandsExecuted,
             commandsFailed: commandsFailed,
             duration: duration,
-            isRemote: pending.isRemote
+            isRemote: pending.isRemote,
+            commandResults: commandResults
         )
 
         saveScripts()
