@@ -22,26 +22,24 @@ class AppState {
     /// Server manager
     let serverManager: ServerManager
 
-    /// Execution history
-    private(set) var executionHistory: [ScriptExecutionRecord] = []
-
-    /// Currently selected execution (for detail view)
-    var selectedExecutionId: UUID?
+    /// Script library for managing saved scripts
+    let scriptLibrary: ScriptLibrary
 
     /// Show accessibility permission alert
     var showAccessibilityAlert: Bool = false
 
     /// Selected tab
-    var selectedTab: Tab = .history
+    var selectedTab: Tab = .scripts
 
     enum Tab: String, CaseIterable {
-        case history = "History"
+        case scripts = "Scripts"
         case settings = "Settings"
     }
 
     init() {
         self.settings = AppSettings.load()
         self.serverManager = ServerManager()
+        self.scriptLibrary = ScriptLibrary()
 
         // Configure server manager
         applySettings()
@@ -68,63 +66,17 @@ class AppState {
     }
 
     private func handleExecutionStarted(id: UUID, script: String, mode: String?) {
-        let execution = ScriptExecutionRecord(
-            id: id,
-            script: script,
-            mode: mode,
-            startTime: Date()
-        )
-
-        // Add to history (at the beginning)
-        executionHistory.insert(execution, at: 0)
-
-        // Trim history if needed
-        if executionHistory.count > settings.maxHistoryItems {
-            executionHistory = Array(executionHistory.prefix(settings.maxHistoryItems))
-        }
+        // Track in script library if we have a selected script
+        scriptLibrary.handleExecutionStarted(executionId: id, script: script)
     }
 
     private func handleExecutionCompleted(id: UUID, response: ExecuteResponse) {
-        guard let index = executionHistory.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-
-        // Update the execution record
-        executionHistory[index].endTime = Date()
-        executionHistory[index].success = response.success
-        executionHistory[index].commandsExecuted = response.commandsExecuted
-        executionHistory[index].commandsFailed = response.commandsFailed
-
-        // Convert command results
-        executionHistory[index].results = response.results.map { result in
-            CommandResult(
-                index: result.index,
-                command: result.command,
-                status: result.status == "success" ? .success : .failure,
-                error: result.error,
-                value: result.value
-            )
-        }
-    }
-
-    // MARK: - Computed Properties
-
-    var selectedExecution: ScriptExecutionRecord? {
-        guard let id = selectedExecutionId else { return nil }
-        return executionHistory.first { $0.id == id }
-    }
-
-    // MARK: - Actions
-
-    func clearHistory() {
-        executionHistory.removeAll()
-        selectedExecutionId = nil
-    }
-
-    func removeExecution(_ id: UUID) {
-        executionHistory.removeAll { $0.id == id }
-        if selectedExecutionId == id {
-            selectedExecutionId = nil
-        }
+        // Update script library with execution results
+        scriptLibrary.handleExecutionCompleted(
+            executionId: id,
+            success: response.success,
+            commandsExecuted: response.commandsExecuted,
+            commandsFailed: response.commandsFailed
+        )
     }
 }

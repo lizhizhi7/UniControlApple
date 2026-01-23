@@ -34,13 +34,13 @@ struct ContentView: View {
 
             // Tab content
             switch appState.selectedTab {
-            case .history:
-                ExecutionHistoryView(appState: appState)
+            case .scripts:
+                ScriptEditorView(appState: appState)
             case .settings:
                 SettingsView(appState: appState)
             }
         }
-        .frame(minWidth: 400, minHeight: 450)
+        .frame(minWidth: 500, minHeight: 500)
         .alert("Accessibility Permission Required", isPresented: $appState.showAccessibilityAlert) {
             Button("Open System Settings") {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
@@ -110,5 +110,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView(appState: AppState())
-        .frame(width: 420, height: 500)
+        .frame(width: 600, height: 550)
 }

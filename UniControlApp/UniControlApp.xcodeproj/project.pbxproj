@@ -326,20 +326,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A0000C0000000000000000A /* Build configuration list for PBXProject "UniControlApp" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1A0000E0000000000000000A /* Debug */,
-				1A0000F0000000000000000A /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		1A000080000000000000000A /* Build configuration list for PBXNativeTarget "UniControlApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A000100000000000000000A /* Debug */,
 				1A000110000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A0000C0000000000000000A /* Build configuration list for PBXProject "UniControlApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000E0000000000000000A /* Debug */,
+				1A0000F0000000000000000A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -359,7 +359,6 @@
 			productName = UniControlCore;
 		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = 1A0000B0000000000000000A /* Project object */;
 }

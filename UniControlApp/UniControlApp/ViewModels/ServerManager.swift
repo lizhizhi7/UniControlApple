@@ -128,6 +128,52 @@ class ServerManager: @unchecked Sendable {
     func updateStatus(_ newStatus: Status) {
         self.status = newStatus
     }
+
+    /// Get the current port if server is running
+    var currentPort: Int? {
+        if case .running(let port) = status {
+            return port
+        }
+        return nil
+    }
+
+    /// Execute a script by making an HTTP request to the local server
+    func execute(script: String, mode: String?) async throws -> ExecuteResponse {
+        guard let port = currentPort else {
+            throw ServerError.notRunning
+        }
+
+        let url = URL(string: "http://localhost:\(port)/execute")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ExecuteRequest(script: script, mode: mode)
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw ServerError.executionFailed("Server returned error")
+        }
+
+        return try JSONDecoder().decode(ExecuteResponse.self, from: data)
+    }
+
+    enum ServerError: LocalizedError {
+        case notRunning
+        case executionFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .notRunning:
+                return "Server is not running"
+            case .executionFailed(let message):
+                return "Execution failed: \(message)"
+            }
+        }
+    }
 }
 
 // MARK: - Server Delegate Adapter
