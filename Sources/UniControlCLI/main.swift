@@ -21,12 +21,14 @@ func printUsage() {
       UniControl [options] <script-file>
       UniControl --interactive, -i
       UniControl --serve [port]
+      UniControl --mcp
 
     Options:
       --debug, -d       Enable debug/verbose output (default: on)
       --quiet, -q       Disable verbose output
       --interactive, -i Start interactive REPL mode
       --serve [port]    Start HTTP/WebSocket server (default port: 8080)
+      --mcp             Start MCP server (Model Context Protocol for Claude Desktop)
       --help, -h        Show this help message
       --version, -v     Show version information
 
@@ -49,6 +51,9 @@ func printUsage() {
       # Start server on custom port
       UniControl --serve 3000
 
+      # Start MCP server for Claude Desktop
+      UniControl --mcp
+
     Interactive Mode:
       Enter commands one at a time. Context is preserved between commands.
       Type 'help' for available commands, 'exit' or 'quit' to exit.
@@ -63,6 +68,30 @@ func printUsage() {
         curl -X POST http://localhost:8080/execute \\
           -H "Content-Type: application/json" \\
           -d '{"script": "launch Calculator\\nwait 1\\nfind 7\\nclick"}'
+
+    MCP Mode (Model Context Protocol):
+      Enables Claude Desktop and other MCP-compatible LLMs to control macOS.
+      Communicates via stdin/stdout using JSON-RPC 2.0 protocol.
+
+      Available tools:
+        - launch_app: Launch applications
+        - find_element: Find UI elements
+        - click, double_click, right_click: Click actions
+        - type_text: Type into text fields
+        - press_key: Keyboard shortcuts
+        - scroll, wait: Navigation and timing
+        - get_system_info, get_windows, get_apps, get_element: State queries
+        - execute_script: Run multi-command DSL scripts
+
+      Claude Desktop configuration (~/.config/claude/claude_desktop_config.json):
+        {
+          "mcpServers": {
+            "unicontrol": {
+              "command": "/path/to/UniControl",
+              "args": ["--mcp"]
+            }
+          }
+        }
 
     Example Scripts:
       examples/example-calculator-simple.unictl
@@ -262,6 +291,7 @@ var showVersion = false
 var serverMode = false
 var serverPort = 8080
 var interactiveMode = false
+var mcpMode = false
 
 var i = 1
 while i < CommandLine.arguments.count {
@@ -288,6 +318,8 @@ while i < CommandLine.arguments.count {
         }
     case "--interactive", "-i":
         interactiveMode = true
+    case "--mcp":
+        mcpMode = true
     default:
         if arg.hasPrefix("-") {
             print("Unknown option: \(arg)")
@@ -315,7 +347,12 @@ if showVersion {
 ExtensionRegistry.shared.register(ExcelExtension.self)
 
 // Run in appropriate mode
-if serverMode {
+if mcpMode {
+    // MCP mode - stdio transport for Claude Desktop and other MCP clients
+    // Note: Don't check permissions here - MCP clients will get permission errors
+    // when they try to execute commands, which is more informative
+    runMCPStdioServer()
+} else if serverMode {
     // In server mode, warn about accessibility but don't block startup
     // The server can still handle health checks, and permissions will be checked when scripts run
     if !checkAccessibilityPermission() {

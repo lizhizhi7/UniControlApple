@@ -110,6 +110,9 @@ public final class UniControlServer: @unchecked Sendable {
     /// Verbose logging
     public var verboseLogging: Bool = true
 
+    /// MCP HTTP transport for Model Context Protocol support
+    private let mcpTransport = MCPHTTPTransport()
+
     public init(port: Int, hostname: String = "127.0.0.1") {
         self.port = port
         self.hostname = hostname
@@ -159,6 +162,16 @@ public final class UniControlServer: @unchecked Sendable {
             try await self.handleWebSocket(inbound: inbound, outbound: outbound)
         }
 
+        // MCP (Model Context Protocol) endpoint
+        router.post("/mcp") { request, _ -> Response in
+            return try await handleMCPRequest(request: request, transport: self.mcpTransport)
+        }
+
+        // MCP session close endpoint
+        router.delete("/mcp/session") { request, _ -> Response in
+            return handleMCPSessionClose(request: request, transport: self.mcpTransport)
+        }
+
         // Create application
         let app = Application(
             router: router,
@@ -170,9 +183,11 @@ public final class UniControlServer: @unchecked Sendable {
 
         print("UniControl server starting on http://\(hostname):\(port)")
         print("Endpoints:")
-        print("  GET  /health  - Health check")
-        print("  POST /execute - Execute DSL script")
-        print("  WS   /ws      - WebSocket for streaming")
+        print("  GET    /health      - Health check")
+        print("  POST   /execute     - Execute DSL script")
+        print("  WS     /ws          - WebSocket for streaming")
+        print("  POST   /mcp         - MCP JSON-RPC endpoint")
+        print("  DELETE /mcp/session - Close MCP session")
         print("")
         print("Press Ctrl+C to stop the server")
 
