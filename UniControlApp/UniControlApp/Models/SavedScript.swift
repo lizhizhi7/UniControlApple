@@ -53,6 +53,24 @@ struct SavedScript: Identifiable, Codable {
             self.isRemote = isRemote
         }
 
+        // Custom decoding to handle missing isRemote field (backward compatibility)
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            versionId = try container.decodeIfPresent(UUID.self, forKey: .versionId)
+            sessionId = try container.decode(UUID.self, forKey: .sessionId)
+            executedAt = try container.decode(Date.self, forKey: .executedAt)
+            success = try container.decodeIfPresent(Bool.self, forKey: .success)
+            commandsExecuted = try container.decode(Int.self, forKey: .commandsExecuted)
+            commandsFailed = try container.decode(Int.self, forKey: .commandsFailed)
+            duration = try container.decodeIfPresent(TimeInterval.self, forKey: .duration)
+            isRemote = try container.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, versionId, sessionId, executedAt, success, commandsExecuted, commandsFailed, duration, isRemote
+        }
+
         var statusIcon: String {
             guard let success = success else {
                 return "circle.dotted"
@@ -96,6 +114,21 @@ struct SavedScript: Identifiable, Codable {
             self.note = note
             self.lastExecutionId = lastExecutionId
             self.isRemote = isRemote
+        }
+
+        // Custom decoding to handle missing isRemote field (backward compatibility)
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(UUID.self, forKey: .id)
+            content = try container.decode(String.self, forKey: .content)
+            savedAt = try container.decode(Date.self, forKey: .savedAt)
+            note = try container.decodeIfPresent(String.self, forKey: .note)
+            lastExecutionId = try container.decodeIfPresent(UUID.self, forKey: .lastExecutionId)
+            isRemote = try container.decodeIfPresent(Bool.self, forKey: .isRemote) ?? false
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, content, savedAt, note, lastExecutionId, isRemote
         }
     }
 

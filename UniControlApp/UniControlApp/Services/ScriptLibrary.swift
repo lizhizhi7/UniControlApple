@@ -257,7 +257,7 @@ class ScriptLibrary {
             return
         }
 
-        // Otherwise, try to find a matching script (remote execution)
+        // Try to find a matching script (remote execution)
         if let matchedScript = findBestMatchingScript(for: script) {
             let versionId = matchedScript.versionId(for: script)
             pendingExecutions[executionId] = PendingExecution(
@@ -267,8 +267,46 @@ class ScriptLibrary {
                 isRemote: true,
                 scriptContent: script
             )
+            return
         }
-        // If no match found, execution won't be tracked in the library
+
+        // No match found - create a new script for this remote execution
+        let trimmedScript = script.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedScript.isEmpty else { return }
+
+        // Generate a name from the first non-empty, non-comment line
+        let scriptName = generateScriptName(from: trimmedScript)
+        let newScript = createScript(name: scriptName, content: trimmedScript)
+
+        pendingExecutions[executionId] = PendingExecution(
+            scriptId: newScript.id,
+            versionId: nil,
+            startTime: Date(),
+            isRemote: true,
+            scriptContent: script
+        )
+    }
+
+    /// Generate a script name from content (first meaningful line)
+    private func generateScriptName(from content: String) -> String {
+        let lines = content.split(separator: "\n", omittingEmptySubsequences: true)
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            // Skip comments
+            if trimmed.hasPrefix("#") || trimmed.hasPrefix("//") {
+                continue
+            }
+            // Use first command as name (truncated)
+            let name = String(trimmed.prefix(40))
+            if name.count < trimmed.count {
+                return name + "..."
+            }
+            return name
+        }
+        // Fallback: use timestamp
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, HH:mm"
+        return "Remote \(formatter.string(from: Date()))"
     }
 
     /// Called when an execution completes
