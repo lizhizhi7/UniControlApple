@@ -35,13 +35,21 @@ struct DSLTextEditor: View {
                         wordRange = newRange
                         selectedCompletionIndex = 0
                         showCompletions = true
-                        updateCursorOffset(at: range.location)
+                        // Defer cursor offset update to next run loop to ensure textViewRef is set
+                        DispatchQueue.main.async {
+                            updateCursorOffset(at: range.location)
+                        }
                     } else {
                         showCompletions = false
                     }
                 }
                 .introspect { editor in
-                    textViewRef = editor.textView
+                    // Defer state update to avoid "Modifying state during view update"
+                    if textViewRef !== editor.textView {
+                        DispatchQueue.main.async {
+                            textViewRef = editor.textView
+                        }
+                    }
                     editor.textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
                     editor.textView.isAutomaticQuoteSubstitutionEnabled = false
                     editor.textView.isAutomaticDashSubstitutionEnabled = false
@@ -127,23 +135,28 @@ struct DSLTextEditor: View {
     }
 
     private func updateCursorOffset(at position: Int) {
-        guard let textView = textViewRef,
-              let layoutManager = textView.layoutManager,
-              let textContainer = textView.textContainer else { return }
+        guard let textView = textViewRef else { return }
 
-        let glyphIndex = layoutManager.glyphIndexForCharacter(at: max(0, position - 1))
-        let lineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil)
-        let glyphLocation = layoutManager.location(forGlyphAt: glyphIndex)
+        // Use firstRect(forCharacterRange:) which works with both TextKit 1 and 2
+        let charIndex = max(0, min(position, text.count))
+        let range = NSRange(location: charIndex, length: 0)
+        var actualRange = NSRange()
+        let rect = textView.firstRect(forCharacterRange: range, actualRange: &actualRange)
 
-        let textContainerOrigin = textView.textContainerOrigin
+        // firstRect returns screen coordinates, convert to textView's coordinate system
+        guard let window = textView.window else { return }
+        let windowRect = window.convertFromScreen(rect)
+        let viewRect = textView.convert(windowRect, from: nil)
+
+        // Position popup below the cursor line
         var point = CGPoint(
-            x: lineFragmentRect.origin.x + glyphLocation.x + textContainerOrigin.x,
-            y: lineFragmentRect.origin.y + lineFragmentRect.height + textContainerOrigin.y
+            x: viewRect.origin.x,
+            y: viewRect.origin.y + viewRect.height
         )
 
-        // Handle empty text or beginning of line
-        if text.isEmpty || position == 0 {
-            point.x = textContainerOrigin.x + textContainer.lineFragmentPadding
+        // Handle edge case where rect is zero (empty text or invalid position)
+        if rect == .zero || text.isEmpty {
+            point = CGPoint(x: textView.textContainerInset.width + 5, y: 18)
         }
 
         // Clamp x position to prevent popup from going off-screen
