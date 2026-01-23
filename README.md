@@ -93,6 +93,69 @@ curl -X POST http://localhost:8080/execute \
   -d '{"script": "launch Calculator\nfind 7\nclick"}'
 ```
 
+### MCP Mode (Model Context Protocol)
+
+UniControl supports [MCP](https://modelcontextprotocol.io/) for integration with AI assistants like Claude Desktop. This enables LLMs to control macOS applications through natural language.
+
+```bash
+./UniControl --mcp
+```
+
+#### Claude Desktop Integration
+
+Add to `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "unicontrol": {
+      "command": "/path/to/UniControl",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+After configuration, Claude can control your Mac:
+- "Open Calculator and compute 7 + 3"
+- "Launch Safari and navigate to the search bar"
+- "Find the Save button in the current window and click it"
+
+#### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `launch_app` | Launch a macOS application |
+| `find_element` | Find UI element by title, role, pattern, or state |
+| `click`, `double_click`, `right_click` | Click actions |
+| `type_text` | Type into text fields |
+| `press_key` | Keyboard shortcuts (e.g., `cmd+c`) |
+| `scroll` | Scroll in a direction |
+| `wait` | Wait for specified seconds |
+| `check`, `uncheck` | Toggle checkboxes |
+| `expand`, `collapse` | Toggle disclosure elements |
+| `focus` | Set keyboard focus |
+| `get_system_info` | Get macOS version, hostname, etc. |
+| `get_windows` | List visible windows |
+| `get_apps` | List running applications |
+| `get_element` | Get info about current element |
+| `execute_script` | Run multi-command DSL script |
+| `reset_session` | Clear session context |
+
+#### HTTP MCP Endpoint
+
+The server mode also exposes an MCP endpoint:
+
+```bash
+# Start server
+./UniControl --serve 8080
+
+# MCP request
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
 ## DSL Commands
 
 | Command | Example | Description |
@@ -148,6 +211,12 @@ UniControl/
 │   ├── UniControlServer.swift
 │   ├── ServerTypes.swift
 │   └── OutputCapture.swift
+├── MCP/                      # Model Context Protocol
+│   ├── MCPTypes.swift       # JSON-RPC & MCP types
+│   ├── MCPToolRegistry.swift # Tool definitions
+│   ├── MCPHandler.swift     # Message handler
+│   ├── MCPStdioTransport.swift # Stdio transport
+│   └── MCPHTTPTransport.swift  # HTTP transport
 ├── Extensions/               # App-specific extensions
 │   └── ExcelExtension.swift
 └── Utils/                    # Utilities
