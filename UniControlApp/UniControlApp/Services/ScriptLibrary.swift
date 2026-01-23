@@ -330,17 +330,9 @@ class ScriptLibrary {
 
         saveScripts()
 
-        // Auto-save version after execution
-        if pending.isRemote {
-            // For remote executions: always save a new version if content is different
-            if !scripts[index].hasVersion(with: pending.scriptContent) {
-                autoSaveVersionAfterExecution(for: pending.scriptId, content: pending.scriptContent, isRemote: true)
-            }
-        } else {
-            // For local executions: only save on success if content has changed
-            if success && hasUnsavedChanges {
-                autoSaveVersionAfterExecution(for: pending.scriptId, content: unsavedContent, isRemote: false)
-            }
+        // Auto-save version after successful execution if content doesn't already exist as a version
+        if success && !scripts[index].hasVersion(with: pending.scriptContent) {
+            autoSaveVersionAfterExecution(for: pending.scriptId, content: pending.scriptContent, isRemote: pending.isRemote)
         }
     }
 
