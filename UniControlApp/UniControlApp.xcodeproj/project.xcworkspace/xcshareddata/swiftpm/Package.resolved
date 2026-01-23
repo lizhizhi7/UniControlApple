@@ -1,5 +1,5 @@
 {
-  "originHash" : "f033f1e164da4707966d4d9de46a9a50802ba22b80af929d4f4d40bb4923eed2",
+  "originHash" : "c0655c2585990f7cb567d132d0378f3959a8b8cea014a71f72689e9bb6625523",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "e1caa19077dda4b00441142ef57da3db02acd466",
         "version" : "1.4.2"
+      }
+    },
+    {
+      "identity" : "highlightedtexteditor",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kyle-n/HighlightedTextEditor",
+      "state" : {
+        "revision" : "759d7b4bd2c10d0bbe93bc62d68572a3702049e3",
+        "version" : "2.1.2"
       }
     },
     {

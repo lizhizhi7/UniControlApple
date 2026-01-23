@@ -2,326 +2,241 @@
 //  DSLTextEditor.swift
 //  UniControlApp
 //
-//  NSTextView-based editor with DSL autocomplete support
+//  Code editor with DSL syntax highlighting using HighlightedTextEditor
 //
 
 import SwiftUI
-import AppKit
+import HighlightedTextEditor
 
-/// NSViewRepresentable wrapper for NSTextView with DSL autocomplete
-struct DSLTextEditor: NSViewRepresentable {
+/// DSL Text Editor with syntax highlighting and autocomplete
+struct DSLTextEditor: View {
     @Binding var text: String
     var onRun: (() -> Void)?
 
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
-        guard let textView = scrollView.documentView as? NSTextView else {
-            return scrollView
+    @State private var showCompletions = false
+    @State private var completions: [DSLCompletionProvider.Completion] = []
+    @State private var wordRange: Range<String.Index>?
+    @State private var selectedCompletionIndex = 0
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            HighlightedTextEditor(text: $text, highlightRules: DSLHighlightRules.rules)
+                .onTextChange { newText in
+                    updateCompletions(for: newText)
+                }
+                .onSelectionChange { range in
+                    // Update completions when cursor moves
+                    let cursorPos = text.distance(from: text.startIndex, to: text.index(text.startIndex, offsetBy: min(range.location, text.count), limitedBy: text.endIndex) ?? text.endIndex)
+                    let (newCompletions, newRange) = DSLCompletionProvider.completions(for: text, cursorPosition: cursorPos)
+                    if !newCompletions.isEmpty && newRange != nil {
+                        completions = newCompletions
+                        wordRange = newRange
+                        selectedCompletionIndex = 0
+                        showCompletions = true
+                    } else {
+                        showCompletions = false
+                    }
+                }
+                .introspect { editor in
+                    editor.textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+                    editor.textView.isAutomaticQuoteSubstitutionEnabled = false
+                    editor.textView.isAutomaticDashSubstitutionEnabled = false
+                    editor.textView.isAutomaticTextReplacementEnabled = false
+                    editor.textView.isAutomaticSpellingCorrectionEnabled = false
+                }
+
+            // Autocomplete popup
+            if showCompletions && !completions.isEmpty {
+                CompletionPopup(
+                    completions: completions,
+                    selectedIndex: $selectedCompletionIndex,
+                    onSelect: { completion in
+                        insertCompletion(completion)
+                    }
+                )
+                .frame(width: 280)
+                .offset(y: 24)
+            }
         }
-
-        textView.delegate = context.coordinator
-        textView.isRichText = false
-        textView.allowsUndo = true
-        textView.usesFindBar = true
-        textView.isAutomaticQuoteSubstitutionEnabled = false
-        textView.isAutomaticDashSubstitutionEnabled = false
-        textView.isAutomaticTextReplacementEnabled = false
-        textView.isAutomaticSpellingCorrectionEnabled = false
-
-        // Monospace font
-        textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-
-        // Text color
-        textView.textColor = NSColor.textColor
-
-        // Background
-        textView.backgroundColor = NSColor.textBackgroundColor
-        textView.drawsBackground = true
-
-        // Line wrapping
-        textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.isHorizontallyResizable = false
-        textView.isVerticallyResizable = true
-
-        // Set initial text
-        textView.string = text
-
-        return scrollView
+        .onKeyPress(.downArrow) {
+            if showCompletions {
+                selectedCompletionIndex = min(selectedCompletionIndex + 1, completions.count - 1)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.upArrow) {
+            if showCompletions {
+                selectedCompletionIndex = max(selectedCompletionIndex - 1, 0)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.tab) {
+            if showCompletions && !completions.isEmpty {
+                insertCompletion(completions[selectedCompletionIndex])
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.return) {
+            if NSEvent.modifierFlags.contains(.command) {
+                onRun?()
+                return .handled
+            }
+            if showCompletions && !completions.isEmpty {
+                insertCompletion(completions[selectedCompletionIndex])
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.escape) {
+            if showCompletions {
+                showCompletions = false
+                return .handled
+            }
+            return .ignored
+        }
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
+    private func updateCompletions(for newText: String) {
+        // Find cursor position (end of text for now, as we don't have precise cursor info here)
+        let cursorPosition = newText.count
+        let (newCompletions, newRange) = DSLCompletionProvider.completions(for: newText, cursorPosition: cursorPosition)
 
-        // Only update if text differs to avoid cursor jumping
-        if textView.string != text {
-            let selectedRanges = textView.selectedRanges
-            textView.string = text
-            textView.selectedRanges = selectedRanges
+        if !newCompletions.isEmpty && newRange != nil {
+            completions = newCompletions
+            wordRange = newRange
+            selectedCompletionIndex = 0
+            showCompletions = true
+        } else {
+            showCompletions = false
         }
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, NSTextViewDelegate {
-        var parent: DSLTextEditor
-        private var completionWindow: NSWindow?
-        private var completionTableView: NSTableView?
-        private var completions: [DSLCompletionProvider.Completion] = []
-        private var wordRange: Range<String.Index>?
-
-        init(_ parent: DSLTextEditor) {
-            self.parent = parent
-        }
-
-        func textDidChange(_ notification: Notification) {
-            guard let textView = notification.object as? NSTextView else { return }
-            parent.text = textView.string
-
-            // Check for completions
-            let cursorPosition = textView.selectedRange().location
-            let (completions, range) = DSLCompletionProvider.completions(for: textView.string, cursorPosition: cursorPosition)
-
-            if !completions.isEmpty && range != nil {
-                self.completions = completions
-                self.wordRange = range
-                showCompletionWindow(for: textView)
-            } else {
-                hideCompletionWindow()
-            }
-        }
-
-        func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
-            // Handle Cmd+Enter to run
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                if NSEvent.modifierFlags.contains(.command) {
-                    parent.onRun?()
-                    return true
-                }
-            }
-
-            // Handle completion navigation
-            if completionWindow?.isVisible == true {
-                if commandSelector == #selector(NSResponder.moveDown(_:)) {
-                    selectNextCompletion()
-                    return true
-                }
-                if commandSelector == #selector(NSResponder.moveUp(_:)) {
-                    selectPreviousCompletion()
-                    return true
-                }
-                if commandSelector == #selector(NSResponder.insertTab(_:)) ||
-                   commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                    insertSelectedCompletion(into: textView)
-                    return true
-                }
-                if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-                    hideCompletionWindow()
-                    return true
-                }
-            }
-
-            return false
-        }
-
-        private func showCompletionWindow(for textView: NSTextView) {
-            if completionWindow == nil {
-                createCompletionWindow()
-            }
-
-            guard let window = completionWindow,
-                  let tableView = completionTableView else { return }
-
-            // Reload data
-            tableView.reloadData()
-            if !completions.isEmpty {
-                tableView.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
-            }
-
-            // Position window below cursor
-            let screenPoint = cursorScreenPosition(for: textView)
-            window.setFrameTopLeftPoint(screenPoint)
-
-            // Resize to fit content
-            let height = min(CGFloat(completions.count) * 22 + 4, 200)
-            window.setContentSize(NSSize(width: 250, height: height))
-
-            // Show window
-            if !window.isVisible {
-                textView.window?.addChildWindow(window, ordered: .above)
-                window.orderFront(nil)
-            }
-        }
-
-        private func cursorScreenPosition(for textView: NSTextView) -> NSPoint {
-            guard let layoutManager = textView.layoutManager,
-                  let textContainer = textView.textContainer else {
-                return .zero
-            }
-
-            let cursorIndex = textView.selectedRange().location
-            let glyphIndex = layoutManager.glyphIndexForCharacter(at: max(0, cursorIndex - 1))
-
-            // Get the line fragment rect for the glyph
-            var lineFragmentRect = NSRect.zero
-            layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil, withoutAdditionalLayout: false)
-            lineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil)
-
-            // Get the location of the glyph within the line
-            let glyphLocation = layoutManager.location(forGlyphAt: glyphIndex)
-
-            // Calculate position in text view coordinates
-            let textContainerOrigin = textView.textContainerOrigin
-            var cursorPoint = NSPoint(
-                x: textContainerOrigin.x + lineFragmentRect.origin.x + glyphLocation.x,
-                y: textContainerOrigin.y + lineFragmentRect.origin.y + lineFragmentRect.height
-            )
-
-            // Handle empty text or beginning of line
-            if textView.string.isEmpty || cursorIndex == 0 {
-                cursorPoint.x = textContainerOrigin.x + textContainer.lineFragmentPadding
-            }
-
-            // Convert to window coordinates, then to screen coordinates
-            let windowPoint = textView.convert(cursorPoint, to: nil)
-            guard let window = textView.window else { return windowPoint }
-            let screenPoint = window.convertPoint(toScreen: windowPoint)
-
-            // Offset slightly below the cursor
-            return NSPoint(x: screenPoint.x, y: screenPoint.y - 5)
-        }
-
-        private func hideCompletionWindow() {
-            completionWindow?.orderOut(nil)
-            completionWindow?.parent?.removeChildWindow(completionWindow!)
-        }
-
-        private func createCompletionWindow() {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 250, height: 150),
-                styleMask: [.borderless],
-                backing: .buffered,
-                defer: false
-            )
-            window.backgroundColor = NSColor.windowBackgroundColor
-            window.isOpaque = false
-            window.hasShadow = true
-            window.level = .floating
-
-            let scrollView = NSScrollView()
-            scrollView.hasVerticalScroller = true
-            scrollView.borderType = .lineBorder
-            scrollView.autoresizingMask = [.width, .height]
-
-            let tableView = NSTableView()
-            tableView.headerView = nil
-            tableView.rowHeight = 22
-            tableView.intercellSpacing = NSSize(width: 0, height: 0)
-            tableView.backgroundColor = .clear
-            tableView.target = self
-            tableView.doubleAction = #selector(completionDoubleClicked)
-
-            let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("completion"))
-            column.width = 248
-            tableView.addTableColumn(column)
-
-            tableView.dataSource = self
-            tableView.delegate = self
-
-            scrollView.documentView = tableView
-            window.contentView = scrollView
-
-            self.completionWindow = window
-            self.completionTableView = tableView
-        }
-
-        @objc private func completionDoubleClicked() {
-            guard let textView = (completionWindow?.parent?.contentView?.subviews.first as? NSScrollView)?.documentView as? NSTextView else { return }
-            insertSelectedCompletion(into: textView)
-        }
-
-        private func selectNextCompletion() {
-            guard let tableView = completionTableView else { return }
-            let nextRow = min(tableView.selectedRow + 1, completions.count - 1)
-            tableView.selectRowIndexes(IndexSet(integer: nextRow), byExtendingSelection: false)
-            tableView.scrollRowToVisible(nextRow)
-        }
-
-        private func selectPreviousCompletion() {
-            guard let tableView = completionTableView else { return }
-            let prevRow = max(tableView.selectedRow - 1, 0)
-            tableView.selectRowIndexes(IndexSet(integer: prevRow), byExtendingSelection: false)
-            tableView.scrollRowToVisible(prevRow)
-        }
-
-        private func insertSelectedCompletion(into textView: NSTextView) {
-            guard let tableView = completionTableView,
-                  tableView.selectedRow >= 0,
-                  tableView.selectedRow < completions.count,
-                  let range = wordRange else {
-                hideCompletionWindow()
-                return
-            }
-
-            let completion = completions[tableView.selectedRow]
-            var newText = textView.string
-            newText.replaceSubrange(range, with: completion.command + " ")
-            textView.string = newText
-            parent.text = newText
-
-            // Move cursor after the inserted text
-            let newPosition = textView.string.distance(from: textView.string.startIndex, to: range.lowerBound) + completion.command.count + 1
-            textView.setSelectedRange(NSRange(location: newPosition, length: 0))
-
-            hideCompletionWindow()
-        }
+    private func insertCompletion(_ completion: DSLCompletionProvider.Completion) {
+        guard let range = wordRange else { return }
+        var newText = text
+        newText.replaceSubrange(range, with: completion.command + " ")
+        text = newText
+        showCompletions = false
     }
 }
 
-// MARK: - NSTableViewDataSource & NSTableViewDelegate
+// MARK: - DSL Syntax Highlighting Rules
 
-extension DSLTextEditor.Coordinator: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int {
-        completions.count
+struct DSLHighlightRules {
+    static let rules: [HighlightRule] = [
+        // Comments (# or //)
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "(#|//).*$", options: .anchorsMatchLines),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemGreen }
+            ]
+        ),
+        // Commands (launch, find, click, type, wait, log, etc.)
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "^\\s*(launch|find|click|type|wait|log|getsystem|getwindows|getwindow|getapps|getapp|getelement|press|scroll|drag|hover|focus|resize|move|close|minimize|maximize)\\b", options: [.anchorsMatchLines, .caseInsensitive]),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemBlue },
+                TextFormattingRule(key: .font) { _, _ in NSFont.monospacedSystemFont(ofSize: 12, weight: .bold) }
+            ]
+        ),
+        // Keywords (role:, type:, index:, active, frontmost, all)
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "\\b(role|type|index|active|frontmost|all):", options: .caseInsensitive),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemPurple }
+            ]
+        ),
+        // AX role names (AXButton, AXTextField, etc.)
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "\\bAX[A-Za-z]+\\b", options: []),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemOrange }
+            ]
+        ),
+        // Numbers
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "\\b\\d+(\\.\\d+)?\\b", options: []),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemTeal }
+            ]
+        ),
+        // Quoted strings
+        HighlightRule(
+            pattern: try! NSRegularExpression(pattern: "\"[^\"]*\"", options: []),
+            formattingRules: [
+                TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemRed }
+            ]
+        ),
+    ]
+}
+
+// MARK: - Completion Popup
+
+struct CompletionPopup: View {
+    let completions: [DSLCompletionProvider.Completion]
+    @Binding var selectedIndex: Int
+    let onSelect: (DSLCompletionProvider.Completion) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(completions.enumerated()), id: \.element.command) { index, completion in
+                            CompletionRow(
+                                completion: completion,
+                                isSelected: index == selectedIndex
+                            )
+                            .id(index)
+                            .onTapGesture {
+                                onSelect(completion)
+                            }
+                        }
+                    }
+                }
+                .onChange(of: selectedIndex) { _, newIndex in
+                    proxy.scrollTo(newIndex, anchor: .center)
+                }
+            }
+        }
+        .frame(maxHeight: 200)
+        .background(Color(.windowBackgroundColor))
+        .cornerRadius(6)
+        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color(.separatorColor), lineWidth: 1)
+        )
     }
+}
 
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard row < completions.count else { return nil }
+struct CompletionRow: View {
+    let completion: DSLCompletionProvider.Completion
+    let isSelected: Bool
 
-        let completion = completions[row]
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(completion.command)
+                .font(.system(.body, design: .monospaced))
+                .fontWeight(.medium)
 
-        let cellView = NSTableCellView()
-        cellView.identifier = NSUserInterfaceItemIdentifier("CompletionCell")
+            Text(completion.syntax)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
 
-        let stackView = NSStackView()
-        stackView.orientation = .horizontal
-        stackView.spacing = 8
-        stackView.translatesAutoresizingMaskIntoConstraints = false
-
-        let commandLabel = NSTextField(labelWithString: completion.command)
-        commandLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
-        commandLabel.textColor = .labelColor
-
-        let syntaxLabel = NSTextField(labelWithString: completion.syntax)
-        syntaxLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
-        syntaxLabel.textColor = .secondaryLabelColor
-
-        stackView.addArrangedSubview(commandLabel)
-        stackView.addArrangedSubview(syntaxLabel)
-
-        cellView.addSubview(stackView)
-        NSLayoutConstraint.activate([
-            stackView.leadingAnchor.constraint(equalTo: cellView.leadingAnchor, constant: 6),
-            stackView.trailingAnchor.constraint(equalTo: cellView.trailingAnchor, constant: -6),
-            stackView.centerYAnchor.constraint(equalTo: cellView.centerYAnchor)
-        ])
-
-        return cellView
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+        .contentShape(Rectangle())
     }
+}
 
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        // Could show detail for selected completion
-    }
+#Preview {
+    DSLTextEditor(text: .constant("# Example script\nlaunch Excel\nwait 2\nfind Developer role: AXButton\nclick"))
+        .frame(width: 400, height: 300)
 }

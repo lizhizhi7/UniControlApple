@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		1A000001000000000000000A /* UniControlCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1A000002000000000000000A /* UniControlCore */; };
+		1A000003000000000000000A /* HighlightedTextEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 1A000004000000000000000A /* HighlightedTextEditor */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000000A /* UniControlCore in Frameworks */,
+				1A000003000000000000000A /* HighlightedTextEditor in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,6 +86,7 @@
 			name = UniControlApp;
 			packageProductDependencies = (
 				1A000002000000000000000A /* UniControlCore */,
+				1A000004000000000000000A /* HighlightedTextEditor */,
 			);
 			productName = UniControlApp;
 			productReference = 1A000010000000000000000A /* UniControlApp.app */;
@@ -115,6 +118,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				1A0000D0000000000000000A /* XCLocalSwiftPackageReference ".." */,
+				1A0000D1000000000000000A /* XCRemoteSwiftPackageReference "HighlightedTextEditor" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1A000070000000000000000A /* Products */;
@@ -353,10 +357,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		1A0000D1000000000000000A /* XCRemoteSwiftPackageReference "HighlightedTextEditor" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kyle-n/HighlightedTextEditor";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		1A000002000000000000000A /* UniControlCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = UniControlCore;
+		};
+		1A000004000000000000000A /* HighlightedTextEditor */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1A0000D1000000000000000A /* XCRemoteSwiftPackageReference "HighlightedTextEditor" */;
+			productName = HighlightedTextEditor;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
