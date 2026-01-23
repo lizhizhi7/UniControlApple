@@ -17,6 +17,8 @@ struct DSLTextEditor: View {
     @State private var completions: [DSLCompletionProvider.Completion] = []
     @State private var wordRange: Range<String.Index>?
     @State private var selectedCompletionIndex = 0
+    @State private var cursorOffset: CGPoint = .zero
+    @State private var textViewRef: NSTextView?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -26,18 +28,20 @@ struct DSLTextEditor: View {
                 }
                 .onSelectionChange { range in
                     // Update completions when cursor moves
-                    let cursorPos = text.distance(from: text.startIndex, to: text.index(text.startIndex, offsetBy: min(range.location, text.count), limitedBy: text.endIndex) ?? text.endIndex)
+                    let cursorPos = min(range.location, text.count)
                     let (newCompletions, newRange) = DSLCompletionProvider.completions(for: text, cursorPosition: cursorPos)
                     if !newCompletions.isEmpty && newRange != nil {
                         completions = newCompletions
                         wordRange = newRange
                         selectedCompletionIndex = 0
                         showCompletions = true
+                        updateCursorOffset(at: range.location)
                     } else {
                         showCompletions = false
                     }
                 }
                 .introspect { editor in
+                    textViewRef = editor.textView
                     editor.textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
                     editor.textView.isAutomaticQuoteSubstitutionEnabled = false
                     editor.textView.isAutomaticDashSubstitutionEnabled = false
@@ -54,8 +58,8 @@ struct DSLTextEditor: View {
                         insertCompletion(completion)
                     }
                 )
-                .frame(width: 280)
-                .offset(y: 24)
+                .frame(width: 200)
+                .offset(x: cursorOffset.x, y: cursorOffset.y + 18)
             }
         }
         .onKeyPress(.downArrow) {
@@ -120,6 +124,33 @@ struct DSLTextEditor: View {
         newText.replaceSubrange(range, with: completion.command + " ")
         text = newText
         showCompletions = false
+    }
+
+    private func updateCursorOffset(at position: Int) {
+        guard let textView = textViewRef,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else { return }
+
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: max(0, position - 1))
+        let lineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil)
+        let glyphLocation = layoutManager.location(forGlyphAt: glyphIndex)
+
+        let textContainerOrigin = textView.textContainerOrigin
+        var point = CGPoint(
+            x: lineFragmentRect.origin.x + glyphLocation.x + textContainerOrigin.x,
+            y: lineFragmentRect.origin.y + lineFragmentRect.height + textContainerOrigin.y
+        )
+
+        // Handle empty text or beginning of line
+        if text.isEmpty || position == 0 {
+            point.x = textContainerOrigin.x + textContainer.lineFragmentPadding
+        }
+
+        // Clamp x position to prevent popup from going off-screen
+        point.x = min(point.x, textView.bounds.width - 210)
+        point.x = max(point.x, 0)
+
+        cursorOffset = point
     }
 }
 
@@ -202,13 +233,13 @@ struct CompletionPopup: View {
                 }
             }
         }
-        .frame(maxHeight: 200)
+        .frame(maxHeight: 120)
         .background(Color(.windowBackgroundColor))
-        .cornerRadius(6)
-        .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+        .cornerRadius(4)
+        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(.separatorColor), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color(.separatorColor), lineWidth: 0.5)
         )
     }
 }
@@ -218,19 +249,19 @@ struct CompletionRow: View {
     let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Text(completion.command)
-                .font(.system(.body, design: .monospaced))
-                .fontWeight(.medium)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
 
             Text(completion.syntax)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
 
             Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         .contentShape(Rectangle())
     }
