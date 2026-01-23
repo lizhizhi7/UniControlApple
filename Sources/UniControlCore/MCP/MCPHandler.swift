@@ -419,9 +419,7 @@ public class MCPHandler {
     }
 
     private func executeGetWindows(_ args: [String: JSONValue]) -> MCPToolCallResult {
-        let activeOnly = args["active_only"]?.boolValue ?? false
-
-        let command = Command.getWindows(activeOnly: activeOnly)
+        let command = Command.getWindows
         let result = executeCommand(command)
 
         switch result {
@@ -436,9 +434,7 @@ public class MCPHandler {
     }
 
     private func executeGetApps(_ args: [String: JSONValue]) -> MCPToolCallResult {
-        let frontmostOnly = args["frontmost_only"]?.boolValue ?? false
-
-        let command = Command.getApps(frontmostOnly: frontmostOnly)
+        let command = Command.getApps
         let result = executeCommand(command)
 
         switch result {

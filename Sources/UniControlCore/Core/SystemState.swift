@@ -57,7 +57,33 @@ public func getSystemInfo() -> SystemInfo {
 
 // MARK: - Running Applications
 
-/// Get running applications
+/// Get running applications with working app marker
+/// - Parameter workingAppPID: PID of the current working app (from context.currentWindow)
+/// - Returns: Array of AppInfo structs with isActive (frontmost) and isWorking markers
+public func getRunningAppsWithMarkers(workingAppPID: pid_t) -> [AppInfo] {
+    let workspace = NSWorkspace.shared
+    var apps: [AppInfo] = []
+
+    for app in workspace.runningApplications {
+        // Filter to regular applications only (not background processes)
+        if app.activationPolicy == .regular {
+            let info = AppInfo(
+                name: app.localizedName ?? "Unknown",
+                bundleIdentifier: app.bundleIdentifier,
+                pid: app.processIdentifier,
+                isActive: app.isActive,
+                isWorking: app.processIdentifier == workingAppPID,
+                isHidden: app.isHidden,
+                launchDate: app.launchDate
+            )
+            apps.append(info)
+        }
+    }
+
+    return apps
+}
+
+/// Get running applications (legacy, without working marker)
 /// - Parameter frontmostOnly: If true, returns only the frontmost application
 /// - Returns: Array of AppInfo structs
 public func getRunningApps(frontmostOnly: Bool = false) -> [AppInfo] {
@@ -72,6 +98,7 @@ public func getRunningApps(frontmostOnly: Bool = false) -> [AppInfo] {
                 bundleIdentifier: frontApp.bundleIdentifier,
                 pid: frontApp.processIdentifier,
                 isActive: frontApp.isActive,
+                isWorking: false,
                 isHidden: frontApp.isHidden,
                 launchDate: frontApp.launchDate
             )
@@ -87,6 +114,7 @@ public func getRunningApps(frontmostOnly: Bool = false) -> [AppInfo] {
                     bundleIdentifier: app.bundleIdentifier,
                     pid: app.processIdentifier,
                     isActive: app.isActive,
+                    isWorking: false,
                     isHidden: app.isHidden,
                     launchDate: app.launchDate
                 )
@@ -100,7 +128,53 @@ public func getRunningApps(frontmostOnly: Bool = false) -> [AppInfo] {
 
 // MARK: - Windows Information
 
-/// Get information about visible windows
+/// Get information about visible windows with frontmost/working markers
+/// - Parameters:
+///   - workingWindowPID: PID of the working window's app
+///   - workingWindowTitle: Title of the working window for matching
+/// - Returns: Array of WindowInfo structs with isFrontmost and isWorking markers
+public func getWindowsInfoWithMarkers(workingWindowPID: pid_t, workingWindowTitle: String?) -> [WindowInfo] {
+    var windows: [WindowInfo] = []
+    let workspace = NSWorkspace.shared
+
+    // Get frontmost app info for marking frontmost window
+    let frontmostPID = workspace.frontmostApplication?.processIdentifier ?? 0
+
+    // Get all windows from all running applications
+    for app in workspace.runningApplications {
+        if app.activationPolicy == .regular {
+            let appElement = AXUIElementCreateApplication(app.processIdentifier)
+            let isFrontmostApp = app.processIdentifier == frontmostPID
+
+            if let windowList = getAttribute(appElement, attribute: kAXWindowsAttribute as CFString) as? [AXUIElement] {
+                for window in windowList {
+                    let windowTitle = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String
+
+                    // Check if this is the frontmost window (focused window of frontmost app)
+                    var isFrontmost = false
+                    if isFrontmostApp {
+                        if let focusedWindow = getAttribute(appElement, attribute: kAXFocusedWindowAttribute as CFString) {
+                            // Compare by checking if titles match (AXUIElement can't be directly compared)
+                            let focusedTitle = getAttribute(focusedWindow as! AXUIElement, attribute: kAXTitleAttribute as CFString) as? String
+                            isFrontmost = (windowTitle == focusedTitle)
+                        }
+                    }
+
+                    // Check if this is the working window
+                    let isWorking = (app.processIdentifier == workingWindowPID && windowTitle == workingWindowTitle)
+
+                    if let info = buildWindowInfo(window, appName: app.localizedName, pid: app.processIdentifier, isFrontmost: isFrontmost, isWorking: isWorking) {
+                        windows.append(info)
+                    }
+                }
+            }
+        }
+    }
+
+    return windows
+}
+
+/// Get information about visible windows (legacy, without markers)
 /// - Parameter activeOnly: If true, returns only the active/focused window
 /// - Returns: Array of WindowInfo structs
 public func getWindowsInfo(activeOnly: Bool = false) -> [WindowInfo] {
@@ -115,13 +189,13 @@ public func getWindowsInfo(activeOnly: Bool = false) -> [WindowInfo] {
             // Try to get focused window first
             if let focusedWindow = getAttribute(appElement, attribute: kAXFocusedWindowAttribute as CFString) {
                 let windowElement = focusedWindow as! AXUIElement
-                if let info = buildWindowInfo(windowElement, appName: frontApp.localizedName, pid: frontApp.processIdentifier) {
+                if let info = buildWindowInfo(windowElement, appName: frontApp.localizedName, pid: frontApp.processIdentifier, isFrontmost: true, isWorking: false) {
                     windows.append(info)
                 }
             } else if let windowList = getAttribute(appElement, attribute: kAXWindowsAttribute as CFString) as? [AXUIElement],
                       let firstWindow = windowList.first {
                 // Fall back to first window
-                if let info = buildWindowInfo(firstWindow, appName: frontApp.localizedName, pid: frontApp.processIdentifier) {
+                if let info = buildWindowInfo(firstWindow, appName: frontApp.localizedName, pid: frontApp.processIdentifier, isFrontmost: true, isWorking: false) {
                     windows.append(info)
                 }
             }
@@ -134,7 +208,7 @@ public func getWindowsInfo(activeOnly: Bool = false) -> [WindowInfo] {
 
                 if let windowList = getAttribute(appElement, attribute: kAXWindowsAttribute as CFString) as? [AXUIElement] {
                     for window in windowList {
-                        if let info = buildWindowInfo(window, appName: app.localizedName, pid: app.processIdentifier) {
+                        if let info = buildWindowInfo(window, appName: app.localizedName, pid: app.processIdentifier, isFrontmost: false, isWorking: false) {
                             windows.append(info)
                         }
                     }
@@ -157,14 +231,14 @@ public func buildWindowInfo(_ window: AXUIElement) -> WindowInfo {
         appName = app.localizedName
     }
 
-    return buildWindowInfo(window, appName: appName, pid: pid) ?? WindowInfo(
+    return buildWindowInfo(window, appName: appName, pid: pid, isFrontmost: false, isWorking: false) ?? WindowInfo(
         title: nil, role: nil, subrole: nil, position: nil, size: nil,
-        isMain: false, isMinimized: false, isFullScreen: false, appName: appName, appPID: pid
+        isMain: false, isMinimized: false, isFullScreen: false, isFrontmost: false, isWorking: false, appName: appName, appPID: pid
     )
 }
 
-/// Build WindowInfo from an AXUIElement with explicit app info
-private func buildWindowInfo(_ window: AXUIElement, appName: String?, pid: pid_t) -> WindowInfo? {
+/// Build WindowInfo from an AXUIElement with explicit app info and markers
+private func buildWindowInfo(_ window: AXUIElement, appName: String?, pid: pid_t, isFrontmost: Bool, isWorking: Bool) -> WindowInfo? {
     let title = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String
     let role = getAttribute(window, attribute: kAXRoleAttribute as CFString) as? String
     let subrole = getAttribute(window, attribute: kAXSubroleAttribute as CFString) as? String
@@ -201,6 +275,8 @@ private func buildWindowInfo(_ window: AXUIElement, appName: String?, pid: pid_t
         isMain: isMain,
         isMinimized: isMinimized,
         isFullScreen: isFullScreen,
+        isFrontmost: isFrontmost,
+        isWorking: isWorking,
         appName: appName,
         appPID: pid
     )

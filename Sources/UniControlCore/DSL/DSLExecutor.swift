@@ -134,14 +134,14 @@ public class DSLExecutor {
         case .getSystem:
             return executeGetSystem()
 
-        case .getWindows(let activeOnly):
-            return executeGetWindows(activeOnly: activeOnly)
+        case .getWindows:
+            return executeGetWindows()
 
         case .getElement:
             return executeGetElement()
 
-        case .getApps(let frontmostOnly):
-            return executeGetApps(frontmostOnly: frontmostOnly)
+        case .getApps:
+            return executeGetApps()
         }
     }
 
@@ -798,33 +798,34 @@ public class DSLExecutor {
         return .success(value: info)
     }
 
-    /// Execute getwindows command - get window information
-    /// - Parameter activeOnly: If true, returns the context's current working window (not the frontmost system window)
-    private func executeGetWindows(activeOnly: Bool) -> CommandResult {
-        if activeOnly {
-            // Return the context's current working window (the window we launched/are operating on)
-            guard let window = context.currentWindow else {
-                return .failure(error: "No current working window. Use 'launch' first.")
-            }
-
-            let info = buildWindowInfo(window)
-            output("Current window: \"\(info.title ?? "Untitled")\" (\(info.appName ?? "Unknown"))", level: .info)
-            return .success(value: [info])
-        } else {
-            // Return all visible windows
-            let windows = getWindowsInfo(activeOnly: false)
-
-            if windows.isEmpty {
-                return .failure(error: "No windows found")
-            }
-
-            output("Found \(windows.count) window(s):", level: .info)
-            for (index, win) in windows.enumerated() {
-                output("  [\(index)] \"\(win.title ?? "Untitled")\" - \(win.appName ?? "Unknown")", level: .info)
-            }
-
-            return .success(value: windows)
+    /// Execute getwindows command - get all windows with frontmost/working markers
+    private func executeGetWindows() -> CommandResult {
+        // Get the working window's PID for comparison
+        var workingWindowPID: pid_t = 0
+        if let workingWindow = context.currentWindow {
+            AXUIElementGetPid(workingWindow, &workingWindowPID)
         }
+        let workingWindowTitle = context.currentWindow.flatMap {
+            getAttribute($0, attribute: kAXTitleAttribute as CFString) as? String
+        }
+
+        // Get all windows with markers
+        let windows = getWindowsInfoWithMarkers(workingWindowPID: workingWindowPID, workingWindowTitle: workingWindowTitle)
+
+        if windows.isEmpty {
+            return .failure(error: "No windows found")
+        }
+
+        output("Found \(windows.count) window(s):", level: .info)
+        for (index, win) in windows.enumerated() {
+            var markers: [String] = []
+            if win.isFrontmost { markers.append("frontmost") }
+            if win.isWorking { markers.append("working") }
+            let markerStr = markers.isEmpty ? "" : " [\(markers.joined(separator: ", "))]"
+            output("  [\(index)] \"\(win.title ?? "Untitled")\" - \(win.appName ?? "Unknown")\(markerStr)", level: .info)
+        }
+
+        return .success(value: windows)
     }
 
     /// Execute getelement command - get current element info
@@ -843,25 +844,29 @@ public class DSLExecutor {
         return .success(value: info)
     }
 
-    /// Execute getapps command - get running applications
-    private func executeGetApps(frontmostOnly: Bool) -> CommandResult {
-        let apps = getRunningApps(frontmostOnly: frontmostOnly)
+    /// Execute getapps command - get all running applications with frontmost/working markers
+    private func executeGetApps() -> CommandResult {
+        // Get the working window's PID to identify the working app
+        var workingAppPID: pid_t = 0
+        if let workingWindow = context.currentWindow {
+            AXUIElementGetPid(workingWindow, &workingAppPID)
+        }
+
+        // Get all apps with markers
+        let apps = getRunningAppsWithMarkers(workingAppPID: workingAppPID)
 
         if apps.isEmpty {
             return .failure(error: "No applications found")
         }
 
-        if frontmostOnly {
-            if let app = apps.first {
-                output("Frontmost: \(app.name) (PID: \(app.pid))", level: .info)
-            }
-        } else {
-            output("Running applications (\(apps.count)):", level: .info)
-            for app in apps {
-                let activeStr = app.isActive ? " [active]" : ""
-                let hiddenStr = app.isHidden ? " [hidden]" : ""
-                output("  \(app.name)\(activeStr)\(hiddenStr) (PID: \(app.pid))", level: .info)
-            }
+        output("Running applications (\(apps.count)):", level: .info)
+        for app in apps {
+            var markers: [String] = []
+            if app.isActive { markers.append("frontmost") }
+            if app.isWorking { markers.append("working") }
+            if app.isHidden { markers.append("hidden") }
+            let markerStr = markers.isEmpty ? "" : " [\(markers.joined(separator: ", "))]"
+            output("  \(app.name)\(markerStr) (PID: \(app.pid))", level: .info)
         }
 
         return .success(value: apps)

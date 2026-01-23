@@ -304,29 +304,19 @@ public struct MCPToolRegistry {
 
     static let getWindowsTool = MCPTool(
         name: "get_windows",
-        description: "Get information about windows. Can retrieve all visible windows or just the current working window (the one UniControl is operating on).",
+        description: "Get information about all visible windows. Each window includes markers: isFrontmost (system's active window) and isWorking (UniControl's current target window set by launch_app).",
         inputSchema: .object([
             "type": .string("object"),
-            "properties": .object([
-                "active_only": .object([
-                    "type": .string("boolean"),
-                    "description": .string("If true, return only the current working window (set by launch_app). Default: false (all visible windows)")
-                ])
-            ])
+            "properties": .object([:])
         ])
     )
 
     static let getAppsTool = MCPTool(
         name: "get_apps",
-        description: "Get information about running applications.",
+        description: "Get information about all running applications. Each app includes markers: isActive (system's frontmost app) and isWorking (UniControl's current target app).",
         inputSchema: .object([
             "type": .string("object"),
-            "properties": .object([
-                "frontmost_only": .object([
-                    "type": .string("boolean"),
-                    "description": .string("If true, return only the frontmost application. Default: false (all apps)")
-                ])
-            ])
+            "properties": .object([:])
         ])
     )
 
@@ -363,10 +353,8 @@ public struct MCPToolRegistry {
             - openmenu <name>: Open a menu
             - increment / decrement: Change stepper/slider value
             - getsystem: Get system info
-            - getwindow: Get current working window
-            - getwindows: Get all visible windows
-            - getapp: Get frontmost app
-            - getapps: Get all running apps
+            - getwindows: Get all windows (with frontmost/working markers)
+            - getapps: Get all apps (with frontmost/working markers)
             - getelement: Get current element info
             - log <message>: Log a message
 
