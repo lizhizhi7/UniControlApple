@@ -21,55 +21,54 @@ struct DSLTextEditor: View {
     @State private var textViewRef: NSTextView?
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            HighlightedTextEditor(text: $text, highlightRules: DSLHighlightRules.rules)
-                .onTextChange { newText in
-                    updateCompletions(for: newText)
-                }
-                .onSelectionChange { range in
-                    // Update completions when cursor moves
-                    let cursorPos = min(range.location, text.count)
-                    let (newCompletions, newRange) = DSLCompletionProvider.completions(for: text, cursorPosition: cursorPos)
-                    if !newCompletions.isEmpty && newRange != nil {
-                        completions = newCompletions
-                        wordRange = newRange
-                        selectedCompletionIndex = 0
-                        showCompletions = true
-                        // Defer cursor offset update to next run loop to ensure textViewRef is set
-                        DispatchQueue.main.async {
-                            updateCursorOffset(at: range.location)
-                        }
-                    } else {
-                        showCompletions = false
-                    }
-                }
-                .introspect { editor in
-                    // Defer state update to avoid "Modifying state during view update"
-                    if textViewRef !== editor.textView {
-                        DispatchQueue.main.async {
-                            textViewRef = editor.textView
-                        }
-                    }
-                    editor.textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-                    editor.textView.isAutomaticQuoteSubstitutionEnabled = false
-                    editor.textView.isAutomaticDashSubstitutionEnabled = false
-                    editor.textView.isAutomaticTextReplacementEnabled = false
-                    editor.textView.isAutomaticSpellingCorrectionEnabled = false
-                }
-
-            // Autocomplete popup
-            if showCompletions && !completions.isEmpty {
-                CompletionPopup(
-                    completions: completions,
-                    selectedIndex: $selectedCompletionIndex,
-                    onSelect: { completion in
-                        insertCompletion(completion)
-                    }
-                )
-                .frame(width: 200)
-                .offset(x: cursorOffset.x, y: cursorOffset.y + 18)
+        HighlightedTextEditor(text: $text, highlightRules: DSLHighlightRules.rules)
+            .onTextChange { newText in
+                updateCompletions(for: newText)
             }
-        }
+            .onSelectionChange { range in
+                // Update completions when cursor moves
+                let cursorPos = min(range.location, text.count)
+                let (newCompletions, newRange) = DSLCompletionProvider.completions(for: text, cursorPosition: cursorPos)
+                if !newCompletions.isEmpty && newRange != nil {
+                    completions = newCompletions
+                    wordRange = newRange
+                    selectedCompletionIndex = 0
+                    showCompletions = true
+                    // Defer cursor offset update to next run loop to ensure textViewRef is set
+                    DispatchQueue.main.async {
+                        updateCursorOffset(at: range.location)
+                    }
+                } else {
+                    showCompletions = false
+                }
+            }
+            .introspect { editor in
+                // Defer state update to avoid "Modifying state during view update"
+                if textViewRef !== editor.textView {
+                    DispatchQueue.main.async {
+                        textViewRef = editor.textView
+                    }
+                }
+                editor.textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+                editor.textView.isAutomaticQuoteSubstitutionEnabled = false
+                editor.textView.isAutomaticDashSubstitutionEnabled = false
+                editor.textView.isAutomaticTextReplacementEnabled = false
+                editor.textView.isAutomaticSpellingCorrectionEnabled = false
+            }
+            // Autocomplete popup - using overlay to render above sibling views
+            .overlay(alignment: .topLeading) {
+                if showCompletions && !completions.isEmpty {
+                    CompletionPopup(
+                        completions: completions,
+                        selectedIndex: $selectedCompletionIndex,
+                        onSelect: { completion in
+                            insertCompletion(completion)
+                        }
+                    )
+                    .frame(width: 200)
+                    .offset(x: cursorOffset.x, y: cursorOffset.y + 18)
+                }
+            }
         .onKeyPress(.downArrow) {
             if showCompletions {
                 selectedCompletionIndex = min(selectedCompletionIndex + 1, completions.count - 1)

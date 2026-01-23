@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-UniControl is a macOS command-line tool written in Swift that provides programmatic control over macOS applications using the Accessibility (AX) APIs. It serves as a **control method implementation** for the broader Universal Operations system, providing keyboard/mouse and UI automation capabilities for any macOS application.
+UniControl is a macOS automation system written in Swift that provides programmatic control over macOS applications using the Accessibility (AX) APIs. It consists of two components:
+
+1. **UniControl CLI** - A command-line tool for scripted automation
+2. **UniControlApp** - A menu bar GUI application with a script editor, execution history, and HTTP server for remote control
+
+Both serve as **control method implementations** for the broader Universal Operations system, providing keyboard/mouse and UI automation capabilities for any macOS application.
 
 ### Role in Universal Operations System
 
@@ -17,15 +22,21 @@ UniControl is a foundational component in the **Control Methods layer** of the u
 
 ## Build Commands
 
+### UniControl CLI
 ```bash
-# Build the project (Debug configuration)
+# Build the CLI tool
 xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
 
-# Build for Release
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Release build
-
-# Run the built executable
+# Run the CLI
 ./build/Debug/UniControl   # or ./build/Release/UniControl
+```
+
+### UniControlApp (GUI)
+```bash
+# Build the GUI app
+xcodebuild -project UniControlApp/UniControlApp.xcodeproj -scheme UniControlApp -configuration Debug build
+
+# The app is output to DerivedData, or open UniControlApp.xcodeproj in Xcode and run
 ```
 
 ## Development Environment
@@ -38,7 +49,7 @@ xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Relea
 
 ## Project Structure
 
-The codebase is organized into modular components for extensibility and maintainability:
+### UniControl CLI
 
 ```
 UniControl/
@@ -57,6 +68,32 @@ UniControl/
 └── Examples/                      # Example implementations
     ├── DirectControlExample.swift # Direct function call examples
     └── DSLExamples.swift          # DSL usage examples
+```
+
+### UniControlApp (GUI)
+
+```
+UniControlApp/
+├── UniControlAppApp.swift          # App entry point (@main)
+├── AppDelegate.swift               # NSApplicationDelegate for menu bar
+├── MenuBarController.swift         # Menu bar popover management
+├── Views/
+│   ├── ContentView.swift           # Main container with tabs
+│   ├── ScriptEditorView.swift      # Script library + editor + execution history
+│   ├── SettingsView.swift          # Server and permission settings
+│   ├── ViewHelpers.swift           # Shared utilities (Formatters, badges, sheets)
+│   └── Components/
+│       └── DSLTextEditor.swift     # Syntax-highlighted editor with autocomplete
+├── ViewModels/
+│   ├── AppState.swift              # App-wide observable state
+│   └── ServerManager.swift         # HTTP server lifecycle
+├── Models/
+│   ├── AppSettings.swift           # User preferences (port, execution mode)
+│   └── SavedScript.swift           # Script, version, and execution history models
+└── Services/
+    ├── ScriptLibrary.swift         # Script CRUD and selection
+    ├── PersistenceManager.swift    # File-based JSON storage
+    └── DSLCompletionProvider.swift # Autocomplete suggestions
 ```
 
 ## Architecture
@@ -137,6 +174,29 @@ UniControl/
   - `exampleDSLComplex()`: Programmatic command construction
   - `exampleDSLFromFile()`: Load scripts from files
 
+### UniControlApp Architecture
+
+**View Layer** (`Views/`):
+- `ContentView` - Tab container (Scripts, Settings) with header showing server status
+- `ScriptEditorView` - HSplitView with script library (left) and editor + history (right)
+- `DSLTextEditor` - HighlightedTextEditor wrapper with syntax highlighting and autocomplete popup
+- `ViewHelpers` - Shared components: `Formatters` (time/duration), `RemoteBadge`, `VersionBadge`, `ScriptNameSheet`
+
+**ViewModel Layer** (`ViewModels/`):
+- `AppState` - @Observable class holding settings, server manager, script library, and UI state
+- `ServerManager` - Manages HTTP server lifecycle (start/stop/restart) with status enum
+
+**Model Layer** (`Models/`):
+- `SavedScript` - Script with name, content, versions array, and execution history
+- `SavedScript.ScriptVersion` - Versioned snapshot with content, timestamp, and optional note
+- `SavedScript.VersionExecution` - Execution record with session ID, duration, command results
+- `AppSettings` - User preferences persisted to UserDefaults
+
+**Service Layer** (`Services/`):
+- `ScriptLibrary` - Script CRUD, selection, search, sort, and content change tracking
+- `PersistenceManager` - JSON file persistence to Application Support directory
+- `DSLCompletionProvider` - Provides command completions based on cursor position
+
 ### Key Technical Details
 
 - **Accessibility APIs**: Extensively uses `ApplicationServices` framework's AX functions (`AXUIElementCreate*`, `AXUIElementCopyAttributeValue`, `AXUIElementSetAttributeValue`)
@@ -144,6 +204,7 @@ UniControl/
 - **Permission Requirements**: Requires Accessibility permissions to control other applications (prompted on first run if not granted)
 - **Search Strategy**: Scans `/Applications`, `/System/Applications`, and `~/Applications` for matching app bundles
 - **Public API**: All modules expose public functions for use by main.swift and future integrations
+- **SwiftUI Patterns**: Uses @Observable, @Bindable, and environment for state management
 
 ## DSL Syntax
 
@@ -233,6 +294,21 @@ executor.execute(commands)
 2. Add parsing logic in `DSLParser.parseCommand()` in `DSL/DSLParser.swift`
 3. Add execution logic in `DSLExecutor.executeAction()` in `DSL/DSLExecutor.swift`
 4. Implement the action function in `Core/ElementInteraction.swift`
+
+### Adding Features to UniControlApp
+
+**New View**:
+1. Create view file in `UniControlApp/Views/`
+2. Add to tab picker in `ContentView.swift` if it's a main tab
+3. Use shared components from `ViewHelpers.swift` for consistent styling
+
+**New Setting**:
+1. Add property to `AppSettings.swift` with UserDefaults key
+2. Add UI control in `SettingsView.swift`
+
+**Syntax Highlighting for New Commands**:
+1. Update regex in `DSLHighlightRules` in `DSLTextEditor.swift`
+2. Add completion entries in `DSLCompletionProvider.swift`
 
 ## Example Workflows
 

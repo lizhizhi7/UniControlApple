@@ -25,14 +25,14 @@ struct ScriptEditorView: View {
         HSplitView {
             // Left: Script library with search and status
             scriptLibraryPanel
-                .frame(minWidth: 180, idealWidth: 220, maxWidth: 300, maxHeight: .infinity)
+                .frame(minWidth: 180, idealWidth: 220, maxWidth: 280, maxHeight: .infinity)
 
             // Right: Editor + Execution history
             rightPanel
-                .frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 300, idealWidth: 350, maxWidth: .infinity, maxHeight: .infinity)
         }
         .sheet(isPresented: $showNewScriptSheet) {
-            NewScriptSheet(name: $newScriptName) {
+            ScriptNameSheet(name: $newScriptName, mode: .create) {
                 if !newScriptName.isEmpty {
                     let script = scriptLibrary.createScript(name: newScriptName)
                     scriptLibrary.selectScript(script.id)
@@ -41,9 +41,9 @@ struct ScriptEditorView: View {
             }
         }
         .sheet(isPresented: $showRenameSheet) {
-            RenameScriptSheet(
+            ScriptNameSheet(
                 name: $newScriptName,
-                originalName: scriptLibrary.selectedScript?.name ?? ""
+                mode: .rename(originalName: scriptLibrary.selectedScript?.name ?? "")
             ) {
                 if let id = scriptLibrary.selectedScriptId, !newScriptName.isEmpty {
                     scriptLibrary.renameScript(id: id, name: newScriptName)
@@ -279,11 +279,12 @@ struct ScriptEditorView: View {
     private var executionHistoryListView: some View {
         VStack(spacing: 0) {
             // Header (clickable to expand/collapse)
-            Button(action: { withAnimation { historyExpanded.toggle() } }) {
+            Button(action: { withAnimation(.easeInOut(duration: 0.2)) { historyExpanded.toggle() } }) {
                 HStack {
-                    Image(systemName: historyExpanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(historyExpanded ? 90 : 0))
 
                     Text("Execution History")
                         .font(.caption)
@@ -404,11 +405,10 @@ struct ScriptListRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Name with status indicator
             HStack(spacing: 6) {
                 if let execution = script.lastExecution {
                     Image(systemName: execution.statusIcon)
-                        .foregroundStyle(statusColor(execution.statusColor))
+                        .foregroundStyle(Color.forStatus(execution.statusColor))
                         .font(.caption)
                 }
 
@@ -418,7 +418,6 @@ struct ScriptListRow: View {
                     .lineLimit(1)
             }
 
-            // Preview or last execution time
             HStack {
                 Text(script.contentPreview)
                     .font(.system(.caption2, design: .monospaced))
@@ -428,39 +427,13 @@ struct ScriptListRow: View {
                 Spacer()
 
                 if let lastExec = script.lastExecutedAt {
-                    Text(formatRelativeTime(lastExec))
+                    Text(Formatters.relativeTime(lastExec))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
         }
         .padding(.vertical, 2)
-    }
-
-    private func statusColor(_ colorName: String) -> Color {
-        switch colorName {
-        case "green": return .green
-        case "red": return .red
-        case "orange": return .orange
-        case "blue": return .blue
-        default: return .gray
-        }
-    }
-
-    private func formatRelativeTime(_ date: Date) -> String {
-        let interval = Date().timeIntervalSince(date)
-        if interval < 60 {
-            return "just now"
-        } else if interval < 3600 {
-            let minutes = Int(interval / 60)
-            return "\(minutes)m ago"
-        } else if interval < 86400 {
-            let hours = Int(interval / 3600)
-            return "\(hours)h ago"
-        } else {
-            let days = Int(interval / 86400)
-            return "\(days)d ago"
-        }
     }
 }
 
@@ -473,32 +446,16 @@ struct ExecutionHistoryRow: View {
         Button(action: { onSelect?() }) {
             HStack(spacing: 8) {
                 Image(systemName: execution.statusIcon)
-                    .foregroundStyle(statusColor)
+                    .foregroundStyle(Color.forStatus(execution.statusColor))
                     .font(.caption)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Text(formatTime(execution.executedAt))
+                        Text(Formatters.time(execution.executedAt))
                             .font(.caption)
 
-                        if execution.isRemote {
-                            Label("Remote", systemImage: "network")
-                                .font(.caption2)
-                                .foregroundStyle(.blue)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(3)
-                        }
-
-                        if let version = versionName {
-                            Text(version)
-                                .font(.caption2)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(Color(.controlBackgroundColor))
-                                .cornerRadius(3)
-                        }
+                        if execution.isRemote { RemoteBadge() }
+                        if let version = versionName { VersionBadge(name: version) }
                     }
 
                     HStack(spacing: 8) {
@@ -513,7 +470,7 @@ struct ExecutionHistoryRow: View {
                                 .foregroundStyle(.red)
                         }
                         if let duration = execution.duration {
-                            Text(formatDuration(duration))
+                            Text(Formatters.duration(duration))
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                         }
@@ -538,35 +495,6 @@ struct ExecutionHistoryRow: View {
         }
         .buttonStyle(.plain)
     }
-
-    private var statusColor: Color {
-        switch execution.statusColor {
-        case "green": return .green
-        case "red": return .red
-        case "orange": return .orange
-        case "blue": return .blue
-        default: return .gray
-        }
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .medium
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        if duration < 1 {
-            return String(format: "%.0fms", duration * 1000)
-        } else if duration < 60 {
-            return String(format: "%.1fs", duration)
-        } else {
-            let minutes = Int(duration / 60)
-            let seconds = Int(duration) % 60
-            return "\(minutes)m \(seconds)s"
-        }
-    }
 }
 
 // MARK: - Execution Detail View
@@ -578,42 +506,25 @@ struct ExecutionDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header with back button
+            // Header
             HStack {
                 Button(action: onBack) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
-                            .font(.caption)
                         Text("Back to History")
-                            .font(.caption)
                     }
+                    .font(.caption)
                 }
                 .buttonStyle(.borderless)
 
                 Spacer()
 
-                Text(formatTime(execution.executedAt))
+                Text(Formatters.time(execution.executedAt))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                if execution.isRemote {
-                    Label("Remote", systemImage: "network")
-                        .font(.caption2)
-                        .foregroundStyle(.blue)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(3)
-                }
-
-                if let version = versionName {
-                    Text(version)
-                        .font(.caption2)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color(.controlBackgroundColor))
-                        .cornerRadius(3)
-                }
+                if execution.isRemote { RemoteBadge() }
+                if let version = versionName { VersionBadge(name: version) }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -634,9 +545,8 @@ struct ExecutionDetailView: View {
                         .foregroundStyle(.red)
                 }
                 if let duration = execution.duration {
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    Text(formatDuration(duration))
+                    Text("•").foregroundStyle(.secondary)
+                    Text(Formatters.duration(duration))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -647,7 +557,7 @@ struct ExecutionDetailView: View {
 
             Divider()
 
-            // Command results list
+            // Command results
             if execution.commandResults.isEmpty {
                 VStack {
                     Text("No command details available")
@@ -665,8 +575,7 @@ struct ExecutionDetailView: View {
                         ForEach(execution.commandResults) { result in
                             CommandResultRow(result: result)
                             if result.id != execution.commandResults.last?.id {
-                                Divider()
-                                    .padding(.leading, 32)
+                                Divider().padding(.leading, 32)
                             }
                         }
                     }
@@ -674,25 +583,6 @@ struct ExecutionDetailView: View {
                 }
                 .frame(maxHeight: 200)
             }
-        }
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .medium
-        formatter.dateStyle = .none
-        return formatter.string(from: date)
-    }
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        if duration < 1 {
-            return String(format: "%.0fms", duration * 1000)
-        } else if duration < 60 {
-            return String(format: "%.1fs", duration)
-        } else {
-            let minutes = Int(duration / 60)
-            let seconds = Int(duration) % 60
-            return "\(minutes)m \(seconds)s"
         }
     }
 }
@@ -751,71 +641,6 @@ struct CommandResultRow: View {
     }
 }
 
-struct NewScriptSheet: View {
-    @Binding var name: String
-    let onCreate: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("New Script")
-                .font(.headline)
-
-            TextField("Script Name", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-
-            HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Button("Create") {
-                    onCreate()
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty)
-            }
-        }
-        .padding(20)
-    }
-}
-
-struct RenameScriptSheet: View {
-    @Binding var name: String
-    let originalName: String
-    let onRename: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Rename Script")
-                .font(.headline)
-
-            TextField("Script Name", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 250)
-
-            HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-
-                Button("Rename") {
-                    onRename()
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(name.isEmpty || name == originalName)
-            }
-        }
-        .padding(20)
-    }
-}
-
 struct VersionHistorySheet: View {
     let script: SavedScript
     let onRestore: (UUID) -> Void
@@ -824,20 +649,15 @@ struct VersionHistorySheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             HStack {
-                Text("Version History")
-                    .font(.headline)
+                Text("Version History").font(.headline)
                 Spacer()
-                Button("Done") {
-                    dismiss()
-                }
+                Button("Done") { dismiss() }
             }
             .padding()
 
             Divider()
 
-            // Version list
             if script.versions.isEmpty {
                 ContentUnavailableView {
                     Label("No Versions", systemImage: "clock.arrow.circlepath")
@@ -853,17 +673,9 @@ struct VersionHistorySheet: View {
                                 .font(.caption)
                                 .fontWeight(.medium)
 
-                            if version.isRemote {
-                                Label("Remote", systemImage: "network")
-                                    .font(.caption2)
-                                    .foregroundStyle(.blue)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Color.blue.opacity(0.1))
-                                    .cornerRadius(3)
-                            }
+                            if version.isRemote { RemoteBadge() }
 
-                            Text(formatDate(version.savedAt))
+                            Text(Formatters.dateTime(version.savedAt))
                                 .font(.caption)
 
                             Spacer()
@@ -875,13 +687,12 @@ struct VersionHistorySheet: View {
                             }
                         }
 
-                        // Show last execution for this version
                         if let lastExec = script.executions(for: version.id).first {
                             HStack(spacing: 4) {
                                 Image(systemName: lastExec.statusIcon)
-                                    .foregroundStyle(lastExec.statusColor == "green" ? .green : lastExec.statusColor == "red" ? .red : .orange)
+                                    .foregroundStyle(Color.forStatus(lastExec.statusColor))
                                     .font(.caption2)
-                                Text("Last run: \(formatDate(lastExec.executedAt))")
+                                Text("Last run: \(Formatters.dateTime(lastExec.executedAt))")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                 if lastExec.isRemote {
@@ -911,7 +722,6 @@ struct VersionHistorySheet: View {
 
             Divider()
 
-            // Footer with restore button
             HStack {
                 Spacer()
                 Button("Restore Selected") {
@@ -925,13 +735,6 @@ struct VersionHistorySheet: View {
             .padding()
         }
         .frame(width: 450, height: 400)
-    }
-
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .medium
-        return formatter.string(from: date)
     }
 }
 
