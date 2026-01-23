@@ -141,11 +141,8 @@ struct DSLTextEditor: NSViewRepresentable {
             }
 
             // Position window below cursor
-            let cursorRect = textView.firstRect(forCharacterRange: textView.selectedRange(), actualRange: nil)
-            if cursorRect != .zero {
-                let screenPoint = NSPoint(x: cursorRect.origin.x, y: cursorRect.origin.y - 5)
-                window.setFrameTopLeftPoint(screenPoint)
-            }
+            let screenPoint = cursorScreenPosition(for: textView)
+            window.setFrameTopLeftPoint(screenPoint)
 
             // Resize to fit content
             let height = min(CGFloat(completions.count) * 22 + 4, 200)
@@ -156,6 +153,44 @@ struct DSLTextEditor: NSViewRepresentable {
                 textView.window?.addChildWindow(window, ordered: .above)
                 window.orderFront(nil)
             }
+        }
+
+        private func cursorScreenPosition(for textView: NSTextView) -> NSPoint {
+            guard let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer else {
+                return .zero
+            }
+
+            let cursorIndex = textView.selectedRange().location
+            let glyphIndex = layoutManager.glyphIndexForCharacter(at: max(0, cursorIndex - 1))
+
+            // Get the line fragment rect for the glyph
+            var lineFragmentRect = NSRect.zero
+            layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil, withoutAdditionalLayout: false)
+            lineFragmentRect = layoutManager.lineFragmentRect(forGlyphAt: max(0, glyphIndex), effectiveRange: nil)
+
+            // Get the location of the glyph within the line
+            let glyphLocation = layoutManager.location(forGlyphAt: glyphIndex)
+
+            // Calculate position in text view coordinates
+            let textContainerOrigin = textView.textContainerOrigin
+            var cursorPoint = NSPoint(
+                x: textContainerOrigin.x + lineFragmentRect.origin.x + glyphLocation.x,
+                y: textContainerOrigin.y + lineFragmentRect.origin.y + lineFragmentRect.height
+            )
+
+            // Handle empty text or beginning of line
+            if textView.string.isEmpty || cursorIndex == 0 {
+                cursorPoint.x = textContainerOrigin.x + textContainer.lineFragmentPadding
+            }
+
+            // Convert to window coordinates, then to screen coordinates
+            let windowPoint = textView.convert(cursorPoint, to: nil)
+            guard let window = textView.window else { return windowPoint }
+            let screenPoint = window.convertPoint(toScreen: windowPoint)
+
+            // Offset slightly below the cursor
+            return NSPoint(x: screenPoint.x, y: screenPoint.y - 5)
         }
 
         private func hideCompletionWindow() {
