@@ -14,11 +14,11 @@ struct ExecutionHistoryView: View {
         HSplitView {
             // Left: Execution list
             executionList
-                .frame(minWidth: 150, idealWidth: 180, maxWidth: 250)
+                .frame(minWidth: 150, idealWidth: 180, maxWidth: 250, maxHeight: .infinity)
 
             // Right: Detail view
             detailView
-                .frame(minWidth: 200)
+                .frame(minWidth: 200, maxHeight: .infinity)
         }
     }
 

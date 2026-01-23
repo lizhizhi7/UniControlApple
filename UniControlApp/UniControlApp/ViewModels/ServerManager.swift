@@ -53,6 +53,7 @@ class ServerManager: @unchecked Sendable {
     private(set) var status: Status = .stopped
     private var server: UniControlServer?
     private var serverTask: Task<Void, Never>?
+    private var delegateAdapter: ServerDelegateAdapter?
 
     /// Callback when execution starts
     var onExecutionStarted: ((UUID, String, String?) -> Void)?
@@ -72,8 +73,8 @@ class ServerManager: @unchecked Sendable {
         server?.verboseLogging = verboseLogging
         server?.defaultExecutionMode = defaultExecutionMode
 
-        // Create a delegate adapter
-        let delegateAdapter = ServerDelegateAdapter(manager: self)
+        // Create and store delegate adapter (must be retained since delegate is weak)
+        delegateAdapter = ServerDelegateAdapter(manager: self)
         server?.delegate = delegateAdapter
 
         serverTask = Task { [weak self] in
@@ -110,6 +111,7 @@ class ServerManager: @unchecked Sendable {
         serverTask = nil
         server?.stop()
         server = nil
+        delegateAdapter = nil
         status = .stopped
     }
 
