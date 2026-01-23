@@ -106,17 +106,13 @@ struct ScriptEditorView: View {
                 .background(Color(.textBackgroundColor))
                 .cornerRadius(6)
 
-                // Sort picker
-                Picker("Sort", selection: Binding(
-                    get: { appState.scriptLibrary.sortOrder },
-                    set: { appState.scriptLibrary.sortOrder = $0 }
-                )) {
-                    ForEach(ScriptLibrary.SortOrder.allCases, id: \.self) { order in
-                        Text(order.rawValue).tag(order)
-                    }
+                // Sort button (cycles through sort types)
+                Button(action: cycleSortOrder) {
+                    Image(systemName: sortOrderIcon)
+                        .font(.caption)
                 }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
+                .buttonStyle(.borderless)
+                .help("Sort by: \(appState.scriptLibrary.sortOrder.rawValue)")
             }
             .padding(10)
 
@@ -355,6 +351,21 @@ struct ScriptEditorView: View {
     }
 
     // MARK: - Actions
+
+    private var sortOrderIcon: String {
+        switch appState.scriptLibrary.sortOrder {
+        case .lastExecuted: return "clock"
+        case .created: return "calendar"
+        case .name: return "textformat.abc"
+        }
+    }
+
+    private func cycleSortOrder() {
+        let allCases = ScriptLibrary.SortOrder.allCases
+        let currentIndex = allCases.firstIndex(of: appState.scriptLibrary.sortOrder) ?? 0
+        let nextIndex = (currentIndex + 1) % allCases.count
+        appState.scriptLibrary.sortOrder = allCases[nextIndex]
+    }
 
     private func saveScript() {
         scriptLibrary.saveCurrentChanges()
