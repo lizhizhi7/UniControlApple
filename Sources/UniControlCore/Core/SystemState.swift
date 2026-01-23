@@ -146,7 +146,24 @@ public func getWindowsInfo(activeOnly: Bool = false) -> [WindowInfo] {
     return windows
 }
 
-/// Build WindowInfo from an AXUIElement
+/// Build WindowInfo from an AXUIElement (gets PID from element)
+public func buildWindowInfo(_ window: AXUIElement) -> WindowInfo {
+    var pid: pid_t = 0
+    AXUIElementGetPid(window, &pid)
+
+    // Get app name from PID
+    var appName: String? = nil
+    if let app = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == pid }) {
+        appName = app.localizedName
+    }
+
+    return buildWindowInfo(window, appName: appName, pid: pid) ?? WindowInfo(
+        title: nil, role: nil, subrole: nil, position: nil, size: nil,
+        isMain: false, isMinimized: false, isFullScreen: false, appName: appName, appPID: pid
+    )
+}
+
+/// Build WindowInfo from an AXUIElement with explicit app info
 private func buildWindowInfo(_ window: AXUIElement, appName: String?, pid: pid_t) -> WindowInfo? {
     let title = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String
     let role = getAttribute(window, attribute: kAXRoleAttribute as CFString) as? String

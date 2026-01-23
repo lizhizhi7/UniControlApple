@@ -32,6 +32,12 @@ public struct MCPToolRegistry {
         collapseTool,
         // Focus
         focusTool,
+        // Menu
+        selectMenuItemTool,
+        openMenuTool,
+        // Increment/decrement
+        incrementTool,
+        decrementTool,
         // State queries
         getSystemInfoTool,
         getWindowsTool,
@@ -123,13 +129,13 @@ public struct MCPToolRegistry {
 
     static let typeTextTool = MCPTool(
         name: "type_text",
-        description: "Type text into the currently selected text field or input element. Use find_element first to select a text input.",
+        description: "Type text. If an element is selected, types into that element. Otherwise, types to whatever is currently focused using keyboard simulation.",
         inputSchema: .object([
             "type": .string("object"),
             "properties": .object([
                 "text": .object([
                     "type": .string("string"),
-                    "description": .string("The text to type into the element")
+                    "description": .string("The text to type")
                 ])
             ]),
             "required": .array([.string("text")])
@@ -233,6 +239,58 @@ public struct MCPToolRegistry {
         ])
     )
 
+    // MARK: - Menu Tools
+
+    static let selectMenuItemTool = MCPTool(
+        name: "select_menu_item",
+        description: "Select a menu item by path. Use '>' to separate menu levels (e.g., 'File > Save As...').",
+        inputSchema: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "path": .object([
+                    "type": .string("string"),
+                    "description": .string("Menu path with '>' separators (e.g., 'File > New', 'Edit > Find > Find...')")
+                ])
+            ]),
+            "required": .array([.string("path")])
+        ])
+    )
+
+    static let openMenuTool = MCPTool(
+        name: "open_menu",
+        description: "Open a top-level menu by name without selecting an item.",
+        inputSchema: .object([
+            "type": .string("object"),
+            "properties": .object([
+                "name": .object([
+                    "type": .string("string"),
+                    "description": .string("Name of the menu to open (e.g., 'File', 'Edit', 'View')")
+                ])
+            ]),
+            "required": .array([.string("name")])
+        ])
+    )
+
+    // MARK: - Increment/Decrement Tools
+
+    static let incrementTool = MCPTool(
+        name: "increment",
+        description: "Increment the value of the currently selected element (for steppers, sliders, etc.). Use find_element first to select the element.",
+        inputSchema: .object([
+            "type": .string("object"),
+            "properties": .object([:])
+        ])
+    )
+
+    static let decrementTool = MCPTool(
+        name: "decrement",
+        description: "Decrement the value of the currently selected element (for steppers, sliders, etc.). Use find_element first to select the element.",
+        inputSchema: .object([
+            "type": .string("object"),
+            "properties": .object([:])
+        ])
+    )
+
     // MARK: - State Query Tools
 
     static let getSystemInfoTool = MCPTool(
@@ -246,13 +304,13 @@ public struct MCPToolRegistry {
 
     static let getWindowsTool = MCPTool(
         name: "get_windows",
-        description: "Get information about visible windows. Can retrieve all windows or just the active window.",
+        description: "Get information about windows. Can retrieve all visible windows or just the current working window (the one UniControl is operating on).",
         inputSchema: .object([
             "type": .string("object"),
             "properties": .object([
                 "active_only": .object([
                     "type": .string("boolean"),
-                    "description": .string("If true, return only the currently active window. Default: false (all windows)")
+                    "description": .string("If true, return only the current working window (set by launch_app). Default: false (all visible windows)")
                 ])
             ])
         ])
@@ -294,16 +352,21 @@ public struct MCPToolRegistry {
             - click: Click current element
             - doubleclick: Double-click current element
             - rightclick: Right-click current element
-            - type <text>: Type text into current element
+            - type <text>: Type text (into element or keyboard simulation)
             - wait <seconds>: Wait for duration
             - presskey <combo>: Press key combination (e.g., cmd+c)
             - scroll <direction>: Scroll (up/down/left/right)
             - check / uncheck: Toggle checkbox
             - expand / collapse: Toggle expandable element
             - focus: Focus element
+            - selectmenuitem <path>: Select menu item (e.g., File > Save)
+            - openmenu <name>: Open a menu
+            - increment / decrement: Change stepper/slider value
             - getsystem: Get system info
-            - getwindows [active]: Get window info
-            - getapps [frontmost]: Get running apps
+            - getwindow: Get current working window
+            - getwindows: Get all visible windows
+            - getapp: Get frontmost app
+            - getapps: Get all running apps
             - getelement: Get current element info
             - log <message>: Log a message
 
