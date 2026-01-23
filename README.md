@@ -117,8 +117,12 @@ curl -X POST http://localhost:8080/execute \
 
 ## Documentation
 
+- [**Quick Start**](docs/QUICK_START.md) - Get started in 5 minutes
 - [**Running Modes**](docs/RUNNING_MODES.md) - CLI, interactive, and server modes
 - [**DSL Reference**](docs/DSL_REFERENCE.md) - Complete command and selector reference
+- [**Testing Guide**](docs/TESTING_GUIDE.md) - Testing strategies and examples
+- [**Accessibility Permissions**](docs/ACCESSIBILITY_PERMISSIONS.md) - Permission setup guide
+- [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Common errors and solutions
 - [**Extension System**](docs/EXTENSION_SYSTEM.md) - Creating custom DSL extensions
 - [**Excel Extension**](docs/extensions/EXCEL_EXTENSION.md) - Excel-specific commands
 

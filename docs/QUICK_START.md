@@ -5,7 +5,11 @@ Get up and running with UniControl in 5 minutes!
 ## Step 1: Build the Project
 
 ```bash
-cd /Users/oliverli/.claude-worktrees/UniControl/wonderful-lalande
+# Using Swift Package Manager (recommended)
+swift build
+# Executable at .build/debug/UniControl
+
+# Or using Xcode
 xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
 ```
 
@@ -176,8 +180,8 @@ xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug
 1. Explore more apps (Safari, Notes, Finder)
 2. Chain multiple commands together
 3. Create complex workflows
-4. Read the [TESTING_GUIDE.md](TESTING_GUIDE.md) for advanced techniques
-5. Check out [README.md](README.md) for DSL syntax reference
+4. Read the [Testing Guide](TESTING_GUIDE.md) for advanced techniques
+5. Check out [DSL Reference](DSL_REFERENCE.md) for complete command documentation
 
 ## Quick Reference
 
@@ -209,9 +213,8 @@ log Done!
 
 ## Need Help?
 
-- 📖 Full documentation: [CLAUDE.md](CLAUDE.md)
-- 🧪 Testing guide: [TESTING_GUIDE.md](TESTING_GUIDE.md)
-- 📘 DSL reference: [README.md](README.md)
-- 🔧 Architecture: [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md)
-
-Happy automating! 🚀
+- [DSL Reference](DSL_REFERENCE.md) - Complete command documentation
+- [Testing Guide](TESTING_GUIDE.md) - Testing strategies
+- [Running Modes](RUNNING_MODES.md) - CLI, interactive, and server modes
+- [Troubleshooting](TROUBLESHOOTING.md) - Common errors and solutions
+- [Accessibility Permissions](ACCESSIBILITY_PERMISSIONS.md) - Permission setup

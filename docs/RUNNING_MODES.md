@@ -55,6 +55,102 @@ The process exits after script completion:
 - Exit code `0`: All commands succeeded
 - Exit code `1`: One or more commands failed
 
+## Debug vs Quiet Output
+
+The `--debug` and `--quiet` flags control verbosity across all modes.
+
+### Debug Mode (`--debug`, `-d`)
+
+Shows detailed execution information:
+
+```
+[1/10] Executing: launch("Calculator")
+✓ Success
+
+[2/10] Executing: wait(2.0)
+✓ Success
+
+[3/10] Executing: find(byTitle("5"))
+✓ Success
+
+[4/10] Executing: click
+✅ Clicked using AXPress
+✓ Success
+
+[5/10] Executing: find(byTitle("NonExistent"))
+❌ Error: Could not find element with title: NonExistent
+
+📋 Available buttons (showing 5):
+  [0] "5" (40% match)
+  [1] "Clear" (35% match)
+  [2] "Equals" (28% match)
+
+💡 Suggestion: Did you mean "Clear"?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Execution Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total commands: 10
+✅ Succeeded: 7
+❌ Failed: 3
+```
+
+**Debug mode shows:**
+- Command-by-command execution progress
+- Success/failure indicators for each step
+- Detailed error messages with suggestions
+- Element suggestions when searches fail (with similarity scores)
+- Vision fallback activation messages
+- Click method details (AXPress, AXPick, etc.)
+- Screenshot verification results
+- Error summary at the end
+
+### Quiet Mode (`--quiet`, `-q`) - Default
+
+Shows minimal output:
+
+```
+Navigating to Developer tab
+Inserting checkbox
+Done!
+
+✅ Script executed successfully!
+```
+
+**Quiet mode shows:**
+- Explicit `log` commands from your script
+- Critical errors (if any)
+- Final success/failure status
+
+### When to Use Each Mode
+
+| Mode | Use Case |
+|------|----------|
+| `--debug` | Developing and testing new scripts, troubleshooting failures, learning how UniControl works |
+| `--quiet` | Production automation, clean logs, CI/CD pipelines, parsing output from other tools |
+
+### Tips for Debug Output
+
+**Redirect debug output to a file:**
+```bash
+./UniControl --debug script.unictl 2>&1 | tee debug.log
+```
+
+**Filter for errors only:**
+```bash
+./UniControl --debug script.unictl 2>&1 | grep "❌"
+```
+
+**Use quiet mode for scripting:**
+```bash
+#!/bin/bash
+if ./UniControl --quiet automation.unictl; then
+    echo "Automation succeeded"
+else
+    echo "Automation failed"
+fi
+```
+
 ## Mode 2: Interactive REPL
 
 Start an interactive Read-Eval-Print Loop for entering commands one at a time.

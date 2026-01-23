@@ -19,18 +19,13 @@ UniControl requires Accessibility permissions to control other applications.
 ### 2. Build UniControl
 
 ```bash
-cd /Users/oliverli/.claude-worktrees/UniControl/wonderful-lalande
+# Using Swift Package Manager (recommended)
+swift build
+# Executable at .build/debug/UniControl
+
+# Or using Xcode
 xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
-```
-
-The executable will be at:
-```
-/Users/<username>/Library/Developer/Xcode/DerivedData/UniControl-*/Build/Products/Debug/UniControl
-```
-
-**Tip**: Create a symlink for easier access:
-```bash
-ln -s "$(find ~/Library/Developer/Xcode/DerivedData/UniControl-*/Build/Products/Debug/UniControl -type f | head -1)" ./UniControl
+# Executable at build/Debug/UniControl
 ```
 
 ## Testing Methods
