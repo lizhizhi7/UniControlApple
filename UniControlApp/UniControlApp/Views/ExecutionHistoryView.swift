@@ -18,7 +18,7 @@ struct ExecutionHistoryView: View {
 
             // Right: Detail view
             detailView
-                .frame(minWidth: 200, maxHeight: .infinity)
+                .frame(minWidth: 200, maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
