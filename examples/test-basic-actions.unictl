@@ -1,0 +1,38 @@
+# Test Basic Actions - Stage 1 Implementation
+# Tests new actions: doubleclick, scroll, pressKey, focus, increment/decrement
+
+mode continue
+
+log === Testing Basic Actions ===
+
+# Launch Calculator for testing
+launch Calculator
+wait 2
+
+log Testing number button clicks
+find 5
+click
+wait 0.5
+
+find +
+click
+wait 0.5
+
+find 3
+click
+wait 0.5
+
+find =
+click
+wait 1
+
+log Testing focus
+find C
+focus
+wait 0.5
+
+log Testing keyboard shortcuts
+pressKey Cmd+C
+wait 0.5
+
+log === Basic Actions Test Complete ===

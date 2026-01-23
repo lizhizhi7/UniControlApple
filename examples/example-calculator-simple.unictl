@@ -1,0 +1,88 @@
+# Calculator Automation Example: Simple Calculation
+# This example demonstrates basic automation with Calculator app
+#
+# Prerequisites:
+# - macOS Calculator app (pre-installed on macOS)
+# - Accessibility permission granted to Terminal
+#
+# What this script does:
+# 1. Launches Calculator
+# 2. Performs calculation: 7 + 3 = 10
+# 3. Copies result to clipboard
+# 4. Clears and performs: 5 × 4 = 20
+#
+# This is a good starting example because:
+# - Calculator is always available on macOS
+# - No need to install Excel or other software
+# - Quick to test (runs in ~10 seconds)
+
+mode continue
+
+log === Calculator Simple Automation ===
+
+# Step 1: Launch Calculator
+log Step 1: Launching Calculator
+launch Calculator
+wait 2
+
+# Step 2: Perform first calculation (7 + 3)
+log Step 2: Calculating 7 + 3
+find 7
+click
+wait 0.3
+
+find Add
+click
+wait 0.3
+
+find 3
+click
+wait 0.3
+
+find Equals
+click
+wait 0.5
+
+log Result: 10
+
+# Step 3: Copy result to clipboard
+log Step 3: Copying result to clipboard
+pressKey Cmd+C
+wait 0.5
+
+# Step 4: Clear and perform second calculation (5 × 4)
+log Step 4: Clearing and calculating 5 × 4
+find Clear
+click
+wait 0.5
+
+find 5
+click
+wait 0.3
+
+find Multiply
+click
+wait 0.3
+
+find 4
+click
+wait 0.3
+
+find Equals
+click
+wait 0.5
+
+log Result: 20
+
+# Step 5: Demonstrate keyboard shortcuts
+log Step 5: Testing keyboard shortcut (Cmd+C for copy)
+pressKey Cmd+C
+wait 0.3
+
+log
+log === Calculator Automation Complete! ===
+log
+log Performed operations:
+log   - 7 + 3 = 10
+log   - 5 × 4 = 20
+log   - Copied results to clipboard

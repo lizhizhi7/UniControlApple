@@ -1,0 +1,45 @@
+# Excel Automation Example: Insert Checkbox Control
+# This example demonstrates basic Excel automation workflow
+#
+# Prerequisites:
+# - Microsoft Excel must be installed
+# - Accessibility permission granted to Terminal
+#
+# What this script does:
+# 1. Launches Excel
+# 2. Creates a blank workbook
+# 3. Opens the Developer tab
+# 4. Inserts a Check Box control
+
+# Use continue mode (log errors but keep going)
+mode continue
+
+log === Starting Excel Automation Example ===
+
+# Step 1: Launch Excel and wait for it to load
+log Step 1: Launching Microsoft Excel
+launch Excel
+wait 3
+
+# Step 2: Create a blank workbook
+log Step 2: Creating blank workbook
+find Blank Workbook role: AXButton
+click
+wait 2
+
+# Step 3: Navigate to Developer tab in the ribbon
+log Step 3: Navigating to Developer tab
+find Developer role: AXButton
+click
+wait 1
+
+# Step 4: Insert a Check Box control
+log Step 4: Inserting Check Box control
+find Check Box
+click
+wait 0.5
+
+log === Excel Automation Completed Successfully! ===
+log
+log The checkbox control should now be inserted in your Excel worksheet.
+log You can click and drag to place it on the sheet.

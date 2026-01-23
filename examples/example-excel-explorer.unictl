@@ -1,0 +1,82 @@
+# Excel Element Explorer
+# This is a debugging/exploration script that helps you discover UI elements
+#
+# Purpose:
+# - Find elements in Excel by intentionally using wrong names
+# - See suggestions with similarity scores
+# - Understand what elements are available
+#
+# Prerequisites:
+# - Microsoft Excel must be installed
+# - Run with debug mode (default) to see suggestions
+#
+# Usage:
+#   ./build/Debug/UniControl examples/example-excel-explorer.unictl
+#
+# This script will intentionally fail to find elements, showing you:
+# - Available buttons in the ribbon
+# - Element suggestions with similarity scores
+# - What elements can be clicked
+
+# Use continue mode to see ALL errors and suggestions
+mode continue
+
+log === Excel Element Explorer ===
+log This script will show you available UI elements in Excel
+
+# Launch Excel
+log Launching Excel...
+launch Excel
+wait 3
+
+log
+log === Exploring Excel Start Screen ===
+log Intentionally searching for non-existent elements to see what's available:
+
+# These will fail but show suggestions
+find WorkbookTemplate
+find NewDocument
+find BlankSheet
+
+log
+log === Opening a Blank Workbook ===
+# Now find the real one based on suggestions
+find Blank Workbook role: AXButton
+click
+wait 2
+
+log
+log === Exploring Excel Ribbon ===
+log Searching for non-existent ribbon tabs to see what's available:
+
+# These will fail but show all available ribbon tabs
+find HomeTab
+find InsertTab
+find DeveloperTab
+find ViewTab
+
+log
+log === Exploring Developer Tab (if available) ===
+# Try to find the Developer tab
+find Developer role: AXButton
+click
+wait 1
+
+log
+log === Exploring Controls ===
+log Searching for non-existent controls to see what's available:
+
+# These will fail but show all available controls
+find TextBox
+find ButtonControl
+find CheckBoxControl
+
+log
+log === Explorer Complete ===
+log
+log Review the debug output above to see:
+log 1. Available buttons and their exact names
+log 2. Similarity scores for typos and close matches
+log 3. Role types (AXButton, AXGroup, etc.)
+log
+log Use this information to write accurate automation scripts!

@@ -1,0 +1,36 @@
+# Test Suggestion Engine - Stage 2 Implementation
+# Tests fuzzy matching and element suggestions when searches fail
+
+mode continue
+
+log === Testing Suggestion Engine ===
+
+launch Calculator
+wait 2
+
+log Test 1: Exact match (should work)
+find 5
+click
+wait 0.5
+
+log Test 2: Typo - should show suggestions
+# Intentional typo: "Cientific" instead of "Scientific"
+find Cientific
+# Should fail but show similar elements
+
+log Test 3: Another typo - partial match
+find Calcu
+# Should suggest "Calculator" or similar
+
+log Test 4: Non-existent with suggestions
+find AdvancedMode role: AXButton
+# Should show available buttons
+
+log Test 5: Using a suggested element
+# After seeing suggestions, try the correct one
+find Clear
+click
+wait 0.5
+
+log === Suggestion Engine Test Complete ===
+# Check output for similarity scores and suggestions

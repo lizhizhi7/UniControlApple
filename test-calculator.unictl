@@ -1,0 +1,28 @@
+# Simple Calculator Test
+# This tests basic UniControl functionality
+
+log Starting Calculator test
+launch Calculator
+wait 3
+
+log Clicking number 5
+find 5 role: AXButton
+click
+wait 0.5
+
+log Clicking plus button
+find + role: AXButton
+click
+wait 0.5
+
+log Clicking number 3
+find 3 role: AXButton
+click
+wait 0.5
+
+log Clicking equals button
+find = role: AXButton
+click
+wait 0.5
+
+log Test complete! Result should be 8 in Calculator

@@ -1,0 +1,14 @@
+# TextEdit Test
+# Tests launching and basic interaction
+
+log Opening TextEdit
+launch TextEdit
+wait 3
+
+log Looking for New Document button
+find New Document role: AXButton
+click
+wait 1
+
+log TextEdit should now have a new blank document
+log Test complete!

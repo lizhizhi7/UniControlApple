@@ -1,0 +1,28 @@
+# Test Menu Navigation - Stage 1 Implementation
+# Tests menu operations: openMenu, selectMenuItem
+
+mode continue
+
+log === Testing Menu Navigation ===
+
+# Launch TextEdit for menu testing
+launch TextEdit
+wait 2
+
+log Testing open menu
+openMenu File
+wait 1
+
+log Testing select menu item - New Document
+selectMenuItem File/New
+wait 1
+
+log Testing Format menu
+selectMenuItem Format/Font/Show Fonts
+wait 1
+
+# Close font panel
+pressKey Cmd+W
+wait 0.5
+
+log === Menu Navigation Test Complete ===

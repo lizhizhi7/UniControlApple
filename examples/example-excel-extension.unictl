@@ -1,0 +1,45 @@
+# Example: Excel Extension Commands
+# Demonstrates the new Excel-specific DSL extension commands
+#
+# Prerequisites:
+# - Microsoft Excel must be installed
+# - Accessibility permissions must be granted
+#
+# Commands used:
+# - range A1       - Navigate to cell A1
+# - range A1:B5    - Select range A1:B5
+# - typeincell A1 "text" - Type into cell A1
+# - getcell A1     - Read value from cell A1
+# - getcell A1 as varname - Read value and store in variable
+
+launch Excel
+wait 3
+
+# Create a new blank workbook
+find Blank Workbook
+click
+wait 2
+
+log Starting Excel extension demo...
+
+# Navigate to and type in cells
+typeincell A1 "Name"
+typeincell B1 "Score"
+typeincell A2 "Alice"
+typeincell B2 "95"
+typeincell A3 "Bob"
+typeincell B3 "87"
+typeincell A4 "Charlie"
+typeincell B4 "92"
+
+# Navigate to a specific cell
+range B5
+
+# Type a formula (note: formulas start with =)
+typeincell B5 "=SUM(B2:B4)"
+
+# Read back the calculated total
+getcell B5 as total
+
+log Excel extension demo complete!
+log Check the spreadsheet for the results

@@ -1,0 +1,119 @@
+# Comprehensive DSL Test - All Stages
+# Tests features from Stages 1, 2, and 3 combined
+
+mode continue
+
+log ========================================
+log   UniControl Comprehensive Test Suite
+log ========================================
+
+# Stage 1: Extended DSL Operations
+log
+log === Stage 1: Extended DSL Operations ===
+
+log 1.1: Launch and basic operations
+launch Calculator
+wait 2
+
+log 1.2: Click operations
+find 4
+click
+wait 0.3
+
+find 2
+click
+wait 0.3
+
+log 1.3: Focus action
+find =
+focus
+wait 0.3
+click
+wait 0.5
+
+log 1.4: Keyboard shortcuts
+pressKey Cmd+C
+wait 0.5
+
+log 1.5: Clear with keyboard
+pressKey Cmd+Backspace
+wait 0.5
+
+# Stage 2: Error Handling & Debugging
+log
+log === Stage 2: Error Handling & Debugging ===
+
+log 2.1: Test error logging (continue mode)
+find NonExistentElement
+# Should log error but continue
+
+log 2.2: Test with correct element after error
+find 1
+click
+wait 0.3
+
+find 0
+click
+wait 0.5
+
+log 2.3: Test suggestion engine
+find Cientific
+# Should show suggestions for "Scientific"
+
+log 2.4: Multiple operations with some failures
+find +
+click
+wait 0.3
+
+find InvalidButton
+click
+# Should fail but continue
+
+find 5
+click
+wait 0.3
+
+find =
+click
+wait 1
+
+# Stage 3: Vision Fallback (will try if AX fails)
+log
+log === Stage 3: Vision Fallback Ready ===
+log Vision fallback will automatically activate if AX fails
+log (requires macOS 12.3+ and Screen Recording permissions)
+
+# Test TextEdit for more complex scenarios
+log
+log === TextEdit Integration Test ===
+
+launch TextEdit
+wait 2
+
+log Type in text area
+find role: AXTextArea
+click
+wait 0.5
+
+type Testing UniControl with all three stages!
+wait 1
+
+log Select all and copy
+pressKey Cmd+A
+wait 0.5
+pressKey Cmd+C
+wait 0.5
+
+log New document
+pressKey Cmd+N
+wait 1
+
+log Paste
+pressKey Cmd+V
+wait 1
+
+log
+log ========================================
+log   Test Suite Complete
+log ========================================
+log Check summary for any errors
