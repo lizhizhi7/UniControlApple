@@ -210,12 +210,6 @@ class ScriptLibrary {
         saveScripts()
     }
 
-    /// Auto-save version after successful execution
-    func autoSaveVersionAfterExecution(for scriptId: UUID, content: String, isRemote: Bool = false) {
-        let note = isRemote ? "Auto-save after remote execution" : "Auto-save after successful execution"
-        saveVersion(for: scriptId, content: content, note: note, isRemote: isRemote)
-    }
-
     /// Get the current version ID for a script (if content matches a version)
     func currentVersionId(for scriptId: UUID, content: String) -> UUID? {
         guard let script = scripts.first(where: { $0.id == scriptId }) else { return nil }
@@ -329,19 +323,6 @@ class ScriptLibrary {
         )
 
         saveScripts()
-
-        // Auto-save version after execution
-        if pending.isRemote {
-            // For remote executions: always save a new version if content is different
-            if !scripts[index].hasVersion(with: pending.scriptContent) {
-                autoSaveVersionAfterExecution(for: pending.scriptId, content: pending.scriptContent, isRemote: true)
-            }
-        } else {
-            // For local executions: only save on success if content has changed
-            if success && hasUnsavedChanges {
-                autoSaveVersionAfterExecution(for: pending.scriptId, content: unsavedContent, isRemote: false)
-            }
-        }
     }
 
     /// Clear execution history for a script
