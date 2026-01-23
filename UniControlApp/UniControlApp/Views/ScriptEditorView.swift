@@ -90,29 +90,33 @@ struct ScriptEditorView: View {
                     .help("New Script")
                 }
 
-                // Search field
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                    TextField("Search", text: Binding(
-                        get: { appState.scriptLibrary.searchQuery },
-                        set: { appState.scriptLibrary.searchQuery = $0 }
-                    ))
-                        .textFieldStyle(.plain)
-                        .font(.caption)
-                }
-                .padding(6)
-                .background(Color(.textBackgroundColor))
-                .cornerRadius(6)
+                // Sort and search
+                HStack(spacing: 6) {
+                    // Sort button (cycles through sort types)
+                    Button(action: cycleSortOrder) {
+                        Image(systemName: sortOrderIcon)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Sort: \(appState.scriptLibrary.sortOrder.rawValue)\nClick to change")
 
-                // Sort button (cycles through sort types)
-                Button(action: cycleSortOrder) {
-                    Image(systemName: sortOrderIcon)
-                        .font(.caption)
+                    // Search field
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
+                        TextField("Search", text: Binding(
+                            get: { appState.scriptLibrary.searchQuery },
+                            set: { appState.scriptLibrary.searchQuery = $0 }
+                        ))
+                            .textFieldStyle(.plain)
+                            .font(.caption)
+                    }
+                    .padding(6)
+                    .background(Color(.textBackgroundColor))
+                    .cornerRadius(6)
                 }
-                .buttonStyle(.borderless)
-                .help("Sort by: \(appState.scriptLibrary.sortOrder.rawValue)")
             }
             .padding(10)
 
