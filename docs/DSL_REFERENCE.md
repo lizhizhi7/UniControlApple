@@ -259,6 +259,96 @@ log Step 1 complete
 log Finished processing all files
 ```
 
+### State Retrieval
+
+State retrieval commands query system, application, window, and element information. They return structured data that is especially useful in server mode (JSON responses).
+
+#### `getsystem`
+
+Returns system information including OS version, hostname, architecture, and current user.
+
+```
+getsystem
+```
+
+Output:
+```
+System: Version 15.2 (Build 24C101) (arm64)
+Host: MacBook-Pro.local, User: john
+```
+
+JSON response includes: `osVersion`, `osBuild`, `hostname`, `architecture`, `username`, `homeDirectory`
+
+#### `getwindows` / `getwindow`
+
+Returns information about visible windows.
+
+```
+getwindows              # Get all visible windows
+getwindows all          # Same as above
+getwindows active       # Get only the active/focused window
+getwindow               # Shorthand for getwindows active
+```
+
+Output:
+```
+Found 3 window(s):
+  [0] "Document1.xlsx" - Microsoft Excel
+  [1] "Untitled" - TextEdit
+  [2] "Finder"  - Finder
+```
+
+JSON response includes: `title`, `role`, `subrole`, `position`, `size`, `isMain`, `isMinimized`, `isFullScreen`, `appName`, `appPID`
+
+#### `getapps` / `getapp`
+
+Returns information about running applications.
+
+```
+getapps                 # Get all running applications
+getapps all             # Same as above
+getapps frontmost       # Get only the frontmost application
+getapp                  # Shorthand for getapps frontmost
+```
+
+Output:
+```
+Running applications (5):
+  Microsoft Excel [active] (PID: 1234)
+  Finder (PID: 456)
+  Safari [hidden] (PID: 789)
+  ...
+```
+
+JSON response includes: `name`, `bundleIdentifier`, `pid`, `isActive`, `isHidden`, `launchDate`
+
+#### `getelement`
+
+Returns detailed information about the currently selected element (after using `find`).
+
+```
+find Submit role: AXButton
+getelement
+```
+
+Output:
+```
+Element: AXButton - "Submit"
+  enabled: true, focused: false, actions: AXPress, AXShowMenu
+  position: (450, 320), size: 100x30
+```
+
+JSON response includes: `role`, `roleDescription`, `title`, `description`, `value`, `enabled`, `focused`, `selected`, `expanded`, `position`, `size`, `actions`, `childrenCount`
+
+### Enhanced Find Results
+
+When using `find` commands, the result now includes rich element information (same as `getelement`). In server mode, the JSON response contains a structured `elementInfo` or `elementInfos` field with all element attributes.
+
+```
+find Submit role: AXButton
+# Returns ElementInfo with position, size, states, available actions, etc.
+```
+
 ## Element Selectors
 
 ### `byTitle(String)`
@@ -530,6 +620,30 @@ find Custom Option
 click
 ```
 
+### State Inspection Script
+
+```
+# inspect-state.unictl
+# Query system and application state
+
+getsystem
+log ---
+
+getapps
+log ---
+
+launch Calculator
+wait 1
+
+getwindow
+log ---
+
+find 7
+getelement
+
+log State inspection complete
+```
+
 ## Programmatic Usage (Swift)
 
 Scripts can also be constructed programmatically:
@@ -568,6 +682,23 @@ if let element = executor.context.currentElement {
 if let value = executor.context.variables["myVar"] as? String {
     print("Variable value: \(value)")
 }
+```
+
+### State Retrieval Commands
+
+```swift
+let commands: [Command] = [
+    .getSystem,                           // Get system info
+    .launch(appName: "Calculator"),
+    .perform(action: .wait(1.0)),
+    .getWindows(activeOnly: true),        // Get active window
+    .find(selector: .byTitle("7")),
+    .getElement,                          // Get element details
+    .getApps(frontmostOnly: false)        // Get all running apps
+]
+
+let executor = DSLExecutor()
+executor.execute(commands)
 ```
 
 ## See Also

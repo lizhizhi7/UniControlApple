@@ -152,6 +152,18 @@ public class DSLExecutor {
 
         case .custom(let extensionCommand):
             return executeCustomCommand(extensionCommand)
+
+        case .getSystem:
+            return executeGetSystem()
+
+        case .getWindows(let activeOnly):
+            return executeGetWindows(activeOnly: activeOnly)
+
+        case .getElement:
+            return executeGetElement()
+
+        case .getApps(let frontmostOnly):
+            return executeGetApps(frontmostOnly: frontmostOnly)
         }
     }
 
@@ -191,7 +203,8 @@ public class DSLExecutor {
         case .byTitle(let title):
             if let element = findElement(in: window, title: title) {
                 context.currentElement = element
-                return .success(value: element)
+                let elementInfo = buildElementInfo(element)
+                return .success(value: elementInfo)
             }
 
             // Try vision fallback if available (macOS 12.3+)
@@ -214,7 +227,8 @@ public class DSLExecutor {
             if let first = elements.first {
                 context.currentElement = first
                 context.foundElements = elements
-                return .success(value: elements)
+                let elementInfos = elements.map { buildElementInfo($0) }
+                return .success(value: elementInfos)
             }
             // Clear current element since search failed
             context.currentElement = nil
@@ -223,7 +237,8 @@ public class DSLExecutor {
         case .byTitleAndRole(let title, let role):
             if let element = findElement(in: window, title: title, role: role) {
                 context.currentElement = element
-                return .success(value: element)
+                let elementInfo = buildElementInfo(element)
+                return .success(value: elementInfo)
             }
 
             // Try vision fallback if available (macOS 12.3+)
@@ -244,7 +259,8 @@ public class DSLExecutor {
         case .byIndex(let index):
             if index >= 0 && index < context.foundElements.count {
                 context.currentElement = context.foundElements[index]
-                return .success(value: context.foundElements[index])
+                let elementInfo = buildElementInfo(context.foundElements[index])
+                return .success(value: elementInfo)
             }
             // Clear current element since index is invalid
             context.currentElement = nil
@@ -253,7 +269,8 @@ public class DSLExecutor {
         case .all:
             let elements = findElements(in: window)
             context.foundElements = elements
-            return .success(value: elements)
+            let elementInfos = elements.map { buildElementInfo($0) }
+            return .success(value: elementInfos)
 
         case .byState(let role, let state):
             // Find all elements with specified role
@@ -279,7 +296,8 @@ public class DSLExecutor {
             if let first = matchingElements.first {
                 context.currentElement = first
                 context.foundElements = matchingElements
-                return .success(value: matchingElements)
+                let elementInfos = matchingElements.map { buildElementInfo($0) }
+                return .success(value: elementInfos)
             }
             // Clear current element since search failed
             context.currentElement = nil
@@ -314,7 +332,8 @@ public class DSLExecutor {
             if let first = matchingElements.first {
                 context.currentElement = first
                 context.foundElements = matchingElements
-                return .success(value: matchingElements)
+                let elementInfos = matchingElements.map { buildElementInfo($0) }
+                return .success(value: elementInfos)
             }
             // Clear current element since search failed
             context.currentElement = nil
@@ -791,5 +810,77 @@ public class DSLExecutor {
 
         // Couldn't verify but action was performed
         return .success(value: nil)
+    }
+
+    // MARK: - State Retrieval Commands
+
+    /// Execute getsystem command - get system information
+    private func executeGetSystem() -> CommandResult {
+        let info = getSystemInfo()
+        output("System: \(info.osVersion) (\(info.architecture))", level: .info)
+        output("Host: \(info.hostname), User: \(info.username)", level: .info)
+        return .success(value: info)
+    }
+
+    /// Execute getwindows command - get window information
+    private func executeGetWindows(activeOnly: Bool) -> CommandResult {
+        let windows = getWindowsInfo(activeOnly: activeOnly)
+
+        if windows.isEmpty {
+            return .failure(error: "No windows found")
+        }
+
+        if activeOnly {
+            if let win = windows.first {
+                output("Active window: \"\(win.title ?? "Untitled")\" (\(win.appName ?? "Unknown"))", level: .info)
+            }
+        } else {
+            output("Found \(windows.count) window(s):", level: .info)
+            for (index, win) in windows.enumerated() {
+                output("  [\(index)] \"\(win.title ?? "Untitled")\" - \(win.appName ?? "Unknown")", level: .info)
+            }
+        }
+
+        return .success(value: windows)
+    }
+
+    /// Execute getelement command - get current element info
+    private func executeGetElement() -> CommandResult {
+        guard let element = context.currentElement else {
+            return .failure(error: "No element selected. Use 'find' first.")
+        }
+
+        let info = buildElementInfo(element)
+        output("Element: \(info.role ?? "unknown") - \"\(info.title ?? info.description ?? "")\"", level: .info)
+        output("  enabled: \(info.enabled), focused: \(info.focused), actions: \(info.actions.joined(separator: ", "))", level: .info)
+        if let pos = info.position, let size = info.size {
+            output("  position: (\(Int(pos.x)), \(Int(pos.y))), size: \(Int(size.width))x\(Int(size.height))", level: .info)
+        }
+
+        return .success(value: info)
+    }
+
+    /// Execute getapps command - get running applications
+    private func executeGetApps(frontmostOnly: Bool) -> CommandResult {
+        let apps = getRunningApps(frontmostOnly: frontmostOnly)
+
+        if apps.isEmpty {
+            return .failure(error: "No applications found")
+        }
+
+        if frontmostOnly {
+            if let app = apps.first {
+                output("Frontmost: \(app.name) (PID: \(app.pid))", level: .info)
+            }
+        } else {
+            output("Running applications (\(apps.count)):", level: .info)
+            for app in apps {
+                let activeStr = app.isActive ? " [active]" : ""
+                let hiddenStr = app.isHidden ? " [hidden]" : ""
+                output("  \(app.name)\(activeStr)\(hiddenStr) (PID: \(app.pid))", level: .info)
+            }
+        }
+
+        return .success(value: apps)
     }
 }

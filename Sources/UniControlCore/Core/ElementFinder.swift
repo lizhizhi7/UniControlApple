@@ -211,3 +211,81 @@ public func openMenu(in window: AXUIElement, name: String) -> AXUIElement? {
 
     return nil
 }
+
+// MARK: - Element Info Builder
+
+/// Build rich ElementInfo from an AXUIElement
+/// - Parameter element: The accessibility element
+/// - Returns: ElementInfo struct with all available attributes
+public func buildElementInfo(_ element: AXUIElement) -> ElementInfo {
+    // Get basic attributes
+    let role = getAttribute(element, attribute: kAXRoleAttribute as CFString) as? String
+    let roleDescription = getAttribute(element, attribute: kAXRoleDescriptionAttribute as CFString) as? String
+    let title = getAttribute(element, attribute: kAXTitleAttribute as CFString) as? String
+    let description = getAttribute(element, attribute: kAXDescriptionAttribute as CFString) as? String
+
+    // Get value - handle different types
+    var valueStr: String? = nil
+    if let value = getAttribute(element, attribute: kAXValueAttribute as CFString) {
+        if let str = value as? String {
+            valueStr = str
+        } else if let num = value as? NSNumber {
+            valueStr = num.stringValue
+        } else {
+            valueStr = "\(value)"
+        }
+    }
+
+    // Get state attributes
+    let enabled = (getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool) ?? false
+    let focused = (getAttribute(element, attribute: kAXFocusedAttribute as CFString) as? Bool) ?? false
+    let selected = (getAttribute(element, attribute: kAXSelectedAttribute as CFString) as? Bool) ?? false
+    let expanded = getAttribute(element, attribute: kAXExpandedAttribute as CFString) as? Bool
+
+    // Get position
+    var position: CGPointInfo? = nil
+    if let posValue = getAttribute(element, attribute: kAXPositionAttribute as CFString) {
+        var point = CGPoint.zero
+        if AXValueGetValue(posValue as! AXValue, .cgPoint, &point) {
+            position = CGPointInfo(from: point)
+        }
+    }
+
+    // Get size
+    var size: CGSizeInfo? = nil
+    if let sizeValue = getAttribute(element, attribute: kAXSizeAttribute as CFString) {
+        var sizeVal = CGSize.zero
+        if AXValueGetValue(sizeValue as! AXValue, .cgSize, &sizeVal) {
+            size = CGSizeInfo(from: sizeVal)
+        }
+    }
+
+    // Get available actions
+    var actions: [String] = []
+    var actionsRef: CFArray?
+    if AXUIElementCopyActionNames(element, &actionsRef) == .success, let actionNames = actionsRef as? [String] {
+        actions = actionNames
+    }
+
+    // Get children count
+    var childrenCount = 0
+    if let children = getAttribute(element, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement] {
+        childrenCount = children.count
+    }
+
+    return ElementInfo(
+        role: role,
+        roleDescription: roleDescription,
+        title: title,
+        description: description,
+        value: valueStr,
+        enabled: enabled,
+        focused: focused,
+        selected: selected,
+        expanded: expanded,
+        position: position,
+        size: size,
+        actions: actions,
+        childrenCount: childrenCount
+    )
+}

@@ -56,13 +56,39 @@ public struct CommandExecutionResult: Codable, Sendable {
     public let error: String?
     /// Stringified result value if any
     public let value: String?
+    /// Structured element info (for find/getelement commands)
+    public let elementInfo: ElementInfo?
+    /// Array of element infos (for find commands returning multiple)
+    public let elementInfos: [ElementInfo]?
+    /// Structured system info (for getsystem command)
+    public let systemInfo: SystemInfo?
+    /// Structured window info (for getwindows command)
+    public let windowInfo: [WindowInfo]?
+    /// Structured app info (for getapps command)
+    public let appInfo: [AppInfo]?
 
-    public init(index: Int, command: String, status: String, error: String? = nil, value: String? = nil) {
+    public init(
+        index: Int,
+        command: String,
+        status: String,
+        error: String? = nil,
+        value: String? = nil,
+        elementInfo: ElementInfo? = nil,
+        elementInfos: [ElementInfo]? = nil,
+        systemInfo: SystemInfo? = nil,
+        windowInfo: [WindowInfo]? = nil,
+        appInfo: [AppInfo]? = nil
+    ) {
         self.index = index
         self.command = command
         self.status = status
         self.error = error
         self.value = value
+        self.elementInfo = elementInfo
+        self.elementInfos = elementInfos
+        self.systemInfo = systemInfo
+        self.windowInfo = windowInfo
+        self.appInfo = appInfo
     }
 }
 

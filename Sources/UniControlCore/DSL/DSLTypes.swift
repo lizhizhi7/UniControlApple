@@ -9,6 +9,179 @@ import Foundation
 import ApplicationServices
 import CoreGraphics
 
+// MARK: - State Information Structs
+
+/// Codable wrapper for CGPoint
+public struct CGPointInfo: Codable, Sendable {
+    public let x: Double
+    public let y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+
+    public init(from point: CGPoint) {
+        self.x = Double(point.x)
+        self.y = Double(point.y)
+    }
+}
+
+/// Codable wrapper for CGSize
+public struct CGSizeInfo: Codable, Sendable {
+    public let width: Double
+    public let height: Double
+
+    public init(width: Double, height: Double) {
+        self.width = width
+        self.height = height
+    }
+
+    public init(from size: CGSize) {
+        self.width = Double(size.width)
+        self.height = Double(size.height)
+    }
+}
+
+/// Rich element information returned by find and getelement commands
+public struct ElementInfo: Codable, Sendable {
+    public let role: String?
+    public let roleDescription: String?
+    public let title: String?
+    public let description: String?
+    public let value: String?
+    public let enabled: Bool
+    public let focused: Bool
+    public let selected: Bool
+    public let expanded: Bool?
+    public let position: CGPointInfo?
+    public let size: CGSizeInfo?
+    public let actions: [String]
+    public let childrenCount: Int
+
+    public init(
+        role: String?,
+        roleDescription: String?,
+        title: String?,
+        description: String?,
+        value: String?,
+        enabled: Bool,
+        focused: Bool,
+        selected: Bool,
+        expanded: Bool?,
+        position: CGPointInfo?,
+        size: CGSizeInfo?,
+        actions: [String],
+        childrenCount: Int
+    ) {
+        self.role = role
+        self.roleDescription = roleDescription
+        self.title = title
+        self.description = description
+        self.value = value
+        self.enabled = enabled
+        self.focused = focused
+        self.selected = selected
+        self.expanded = expanded
+        self.position = position
+        self.size = size
+        self.actions = actions
+        self.childrenCount = childrenCount
+    }
+}
+
+/// System information (OS, machine, user)
+public struct SystemInfo: Codable, Sendable {
+    public let osVersion: String
+    public let osBuild: String
+    public let hostname: String
+    public let architecture: String
+    public let username: String
+    public let homeDirectory: String
+
+    public init(
+        osVersion: String,
+        osBuild: String,
+        hostname: String,
+        architecture: String,
+        username: String,
+        homeDirectory: String
+    ) {
+        self.osVersion = osVersion
+        self.osBuild = osBuild
+        self.hostname = hostname
+        self.architecture = architecture
+        self.username = username
+        self.homeDirectory = homeDirectory
+    }
+}
+
+/// Window information
+public struct WindowInfo: Codable, Sendable {
+    public let title: String?
+    public let role: String?
+    public let subrole: String?
+    public let position: CGPointInfo?
+    public let size: CGSizeInfo?
+    public let isMain: Bool
+    public let isMinimized: Bool
+    public let isFullScreen: Bool
+    public let appName: String?
+    public let appPID: Int32
+
+    public init(
+        title: String?,
+        role: String?,
+        subrole: String?,
+        position: CGPointInfo?,
+        size: CGSizeInfo?,
+        isMain: Bool,
+        isMinimized: Bool,
+        isFullScreen: Bool,
+        appName: String?,
+        appPID: Int32
+    ) {
+        self.title = title
+        self.role = role
+        self.subrole = subrole
+        self.position = position
+        self.size = size
+        self.isMain = isMain
+        self.isMinimized = isMinimized
+        self.isFullScreen = isFullScreen
+        self.appName = appName
+        self.appPID = appPID
+    }
+}
+
+/// Application information
+public struct AppInfo: Codable, Sendable {
+    public let name: String
+    public let bundleIdentifier: String?
+    public let pid: Int32
+    public let isActive: Bool
+    public let isHidden: Bool
+    public let launchDate: Date?
+
+    public init(
+        name: String,
+        bundleIdentifier: String?,
+        pid: Int32,
+        isActive: Bool,
+        isHidden: Bool,
+        launchDate: Date?
+    ) {
+        self.name = name
+        self.bundleIdentifier = bundleIdentifier
+        self.pid = pid
+        self.isActive = isActive
+        self.isHidden = isHidden
+        self.launchDate = launchDate
+    }
+}
+
+// MARK: - Selectors and Actions
+
 /// Represents a UI element selector
 public enum ElementSelector {
     case byTitle(String)
@@ -50,6 +223,11 @@ public enum Command {
     case log(message: String)
     case mode(ExecutionMode)
     case custom(ExtensionCommand)
+    // State retrieval commands
+    case getSystem
+    case getWindows(activeOnly: Bool)
+    case getElement
+    case getApps(frontmostOnly: Bool)
 }
 
 /// Execution mode for error handling

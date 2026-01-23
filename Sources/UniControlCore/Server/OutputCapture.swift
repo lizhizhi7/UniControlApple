@@ -54,13 +54,39 @@ public class ServerOutputCapture: OutputCapture {
 
         switch result {
         case .success(let value):
-            let valueStr = value.map { "\($0)" }
+            var valueStr: String? = nil
+            var elementInfo: ElementInfo? = nil
+            var elementInfos: [ElementInfo]? = nil
+            var systemInfo: SystemInfo? = nil
+            var windowInfo: [WindowInfo]? = nil
+            var appInfo: [AppInfo]? = nil
+
+            // Detect structured types and populate appropriate fields
+            if let info = value as? ElementInfo {
+                elementInfo = info
+            } else if let infos = value as? [ElementInfo] {
+                elementInfos = infos
+            } else if let info = value as? SystemInfo {
+                systemInfo = info
+            } else if let infos = value as? [WindowInfo] {
+                windowInfo = infos
+            } else if let infos = value as? [AppInfo] {
+                appInfo = infos
+            } else if let val = value {
+                valueStr = "\(val)"
+            }
+
             executionResult = CommandExecutionResult(
                 index: index,
                 command: command,
                 status: "success",
                 error: nil,
-                value: valueStr
+                value: valueStr,
+                elementInfo: elementInfo,
+                elementInfos: elementInfos,
+                systemInfo: systemInfo,
+                windowInfo: windowInfo,
+                appInfo: appInfo
             )
         case .failure(let error):
             executionResult = CommandExecutionResult(

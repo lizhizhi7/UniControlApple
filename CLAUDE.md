@@ -50,7 +50,8 @@ UniControl/
 ├── Core/                          # Core automation functionality
 │   ├── AppLauncher.swift          # Application launching and window management
 │   ├── ElementFinder.swift        # UI element discovery and search
-│   └── ElementInteraction.swift   # Element interaction (click, type, etc.)
+│   ├── ElementInteraction.swift   # Element interaction (click, type, etc.)
+│   └── SystemState.swift          # System/app/window state retrieval
 ├── Utils/                         # Utility functions
 │   └── Permissions.swift          # Accessibility permission handling
 └── Examples/                      # Example implementations
@@ -70,9 +71,10 @@ UniControl/
 - **DSLTypes.swift**
   - `ElementSelector`: Flexible element selection (byTitle, byRole, byTitleAndRole, byIndex, all)
   - `Action`: Actions to perform (click, type, setValue, wait)
-  - `Command`: High-level commands (launch, find, perform, assert, log)
+  - `Command`: High-level commands (launch, find, perform, assert, log, getSystem, getWindows, getElement, getApps)
   - `CommandResult`: Result wrapper (success/failure)
   - `ExecutionContext`: Maintains state across commands (window, element, variables)
+  - State info structs: `ElementInfo`, `SystemInfo`, `WindowInfo`, `AppInfo` for structured responses
 
 - **DSLParser.swift**
   - Parses text-based `.unictl` scripts
@@ -101,6 +103,12 @@ UniControl/
   - `findElements()`: Recursive element search with role filtering
   - `findElement()`: Find by title/description/help/value attributes
   - `findAllButtons()`: Legacy button-specific search
+  - `buildElementInfo()`: Build rich ElementInfo from AXUIElement
+
+- **SystemState.swift**
+  - `getSystemInfo()`: Get OS version, hostname, architecture, username
+  - `getRunningApps()`: Get running applications with metadata
+  - `getWindowsInfo()`: Get window information using AX API
 
 - **ElementInteraction.swift**
   - `clickElement()`: Perform click action
@@ -158,6 +166,14 @@ find role: <role-name>                 # Find by role only
 click                                   # Click current element
 type <text>                            # Type text into current element
 wait <seconds>                         # Wait for specified duration
+
+# State retrieval commands
+getsystem                              # Get OS version, hostname, architecture, username
+getwindows                             # Get all visible windows
+getwindows active                      # Get active window only (alias: getwindow)
+getapps                                # Get all running applications
+getapps frontmost                      # Get frontmost app only (alias: getapp)
+getelement                             # Get detailed info about current element
 
 # Logging
 log <message>                          # Print message to console
