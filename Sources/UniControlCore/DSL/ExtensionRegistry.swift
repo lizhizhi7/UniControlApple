@@ -30,6 +30,11 @@ public class ExtensionRegistry {
             }
             verbToExtension[lowerVerb] = extensionType
         }
+
+        // Register command descriptors with CommandRegistry
+        for descriptor in extensionType.commandDescriptors {
+            CommandRegistry.shared.register(descriptor)
+        }
     }
 
     /// Check if a verb can be handled by any registered extension

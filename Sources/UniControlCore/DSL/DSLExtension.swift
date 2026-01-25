@@ -31,6 +31,10 @@ public protocol DSLExtension {
     /// List of command verbs this extension handles (e.g., ["clickcell", "range", "typeincell"])
     static var supportedCommands: [String] { get }
 
+    /// Command descriptors for this extension's commands
+    /// Used for MCP tool generation and autocomplete
+    static var commandDescriptors: [CommandDescriptor] { get }
+
     /// Parse a DSL line into an ExtensionCommand
     /// - Parameters:
     ///   - line: The full DSL line
@@ -49,4 +53,23 @@ public protocol DSLExtension {
 
     /// Required initializer for creating extension instances
     init()
+}
+
+// MARK: - Default Implementation
+
+extension DSLExtension {
+    /// Default implementation generates basic descriptors from supportedCommands
+    /// Extensions should override this to provide full metadata
+    public static var commandDescriptors: [CommandDescriptor] {
+        supportedCommands.map { verb in
+            CommandDescriptor(
+                verb: verb,
+                mcpName: "\(identifier)_\(verb)",
+                syntax: verb,
+                description: "\(identifier.capitalized) extension command: \(verb)",
+                category: .extension_,
+                extensionId: identifier
+            )
+        }
+    }
 }

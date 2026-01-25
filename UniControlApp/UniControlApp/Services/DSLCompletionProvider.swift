@@ -3,9 +3,11 @@
 //  UniControlApp
 //
 //  Provides autocomplete suggestions for DSL commands
+//  Completions are generated from CommandRegistry
 //
 
 import Foundation
+import UniControlCore
 
 /// Provides autocomplete suggestions for DSL commands
 struct DSLCompletionProvider {
@@ -25,54 +27,37 @@ struct DSLCompletionProvider {
         }
     }
 
-    /// All available DSL command completions
-    static let commands: [Completion] = [
-        // App control
-        Completion(command: "launch", syntax: "launch <app-name>", description: "Launch an application by name"),
+    /// Ensure built-in commands are registered before accessing completions
+    private static let _initialized: Bool = {
+        BuiltInCommands.registerAll()
+        return true
+    }()
 
-        // Element finding
-        Completion(command: "find", syntax: "find <selector> [role: <role>]", description: "Find a UI element"),
+    /// All available DSL command completions (generated from CommandRegistry)
+    static var commands: [Completion] {
+        _ = _initialized
+        return CommandRegistry.shared.allDescriptors.flatMap { descriptor -> [Completion] in
+            // Create completion for main verb
+            var completions = [
+                Completion(
+                    command: descriptor.verb,
+                    syntax: descriptor.syntax,
+                    description: descriptor.description
+                )
+            ]
 
-        // Basic actions
-        Completion(command: "click", syntax: "click", description: "Click the current element"),
-        Completion(command: "doubleclick", syntax: "doubleclick", description: "Double-click the current element"),
-        Completion(command: "rightclick", syntax: "rightclick", description: "Right-click the current element"),
-        Completion(command: "type", syntax: "type <text>", description: "Type text into the current element"),
-        Completion(command: "wait", syntax: "wait <seconds>", description: "Wait for specified duration"),
+            // Add completions for aliases
+            for alias in descriptor.aliases {
+                completions.append(Completion(
+                    command: alias,
+                    syntax: descriptor.syntax,
+                    description: descriptor.description
+                ))
+            }
 
-        // Scrolling
-        Completion(command: "scroll", syntax: "scroll <up|down|left|right>", description: "Scroll in a direction"),
-
-        // Keyboard
-        Completion(command: "presskey", syntax: "presskey <combo>", description: "Press a key combination"),
-
-        // Element state
-        Completion(command: "focus", syntax: "focus", description: "Focus the current element"),
-        Completion(command: "check", syntax: "check", description: "Check a checkbox"),
-        Completion(command: "uncheck", syntax: "uncheck", description: "Uncheck a checkbox"),
-        Completion(command: "expand", syntax: "expand", description: "Expand a disclosure"),
-        Completion(command: "collapse", syntax: "collapse", description: "Collapse a disclosure"),
-        Completion(command: "increment", syntax: "increment", description: "Increment a stepper/slider"),
-        Completion(command: "decrement", syntax: "decrement", description: "Decrement a stepper/slider"),
-
-        // Menu interaction
-        Completion(command: "selectmenuitem", syntax: "selectmenuitem <path>", description: "Select a menu item by path"),
-        Completion(command: "openmenu", syntax: "openmenu <name>", description: "Open a menu"),
-
-        // Execution mode
-        Completion(command: "mode", syntax: "mode <strict|continue|interactive>", description: "Set execution mode"),
-
-        // Logging
-        Completion(command: "log", syntax: "log <message>", description: "Print a message to console"),
-
-        // State retrieval
-        Completion(command: "getsystem", syntax: "getsystem", description: "Get system info"),
-        Completion(command: "getwindow", syntax: "getwindow", description: "Get active window info"),
-        Completion(command: "getwindows", syntax: "getwindows [active|all]", description: "Get window info"),
-        Completion(command: "getapp", syntax: "getapp", description: "Get frontmost app info"),
-        Completion(command: "getapps", syntax: "getapps [frontmost|all]", description: "Get running apps info"),
-        Completion(command: "getelement", syntax: "getelement", description: "Get current element info"),
-    ]
+            return completions
+        }.sorted { $0.command < $1.command }
+    }
 
     /// Get completions matching the given prefix
     static func completions(for prefix: String) -> [Completion] {
