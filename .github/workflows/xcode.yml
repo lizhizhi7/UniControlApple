@@ -1,0 +1,37 @@
+name: Xcode
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+    - name: Show Xcode version
+      run: xcodebuild -version
+
+    - name: Resolve Swift Package dependencies
+      run: |
+        cd UniControlApp
+        xcodebuild -resolvePackageDependencies -project UniControlApp.xcodeproj -scheme UniControlApp
+
+    - name: Build UniControlApp
+      run: |
+        cd UniControlApp
+        xcodebuild build \
+          -project UniControlApp.xcodeproj \
+          -scheme UniControlApp \
+          -configuration Debug \
+          -destination 'platform=macOS' \
+          CODE_SIGN_IDENTITY="-" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
