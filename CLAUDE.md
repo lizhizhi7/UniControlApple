@@ -52,22 +52,32 @@ xcodebuild -project UniControlApp/UniControlApp.xcodeproj -scheme UniControlApp 
 ### UniControl CLI
 
 ```
-UniControl/
-├── main.swift                      # Entry point
-├── DSL/                            # Domain Specific Language
-│   ├── DSLTypes.swift             # Type definitions (Command, Action, Selector, etc.)
-│   ├── DSLParser.swift            # Text script parser
-│   └── DSLExecutor.swift          # Command executor with context management
-├── Core/                          # Core automation functionality
-│   ├── AppLauncher.swift          # Application launching and window management
-│   ├── ElementFinder.swift        # UI element discovery and search
-│   ├── ElementInteraction.swift   # Element interaction (click, type, etc.)
-│   └── SystemState.swift          # System/app/window state retrieval
-├── Utils/                         # Utility functions
-│   └── Permissions.swift          # Accessibility permission handling
-└── Examples/                      # Example implementations
-    ├── DirectControlExample.swift # Direct function call examples
-    └── DSLExamples.swift          # DSL usage examples
+Sources/
+├── UniControlCLI/
+│   └── main.swift                  # CLI entry point
+└── UniControlCore/                 # Shared library
+    ├── DSL/                        # Domain Specific Language
+    │   ├── CommandDescriptor.swift # Command metadata types (ParameterDescriptor, CommandCategory)
+    │   ├── CommandRegistry.swift   # Central registry for all commands
+    │   ├── BuiltInCommands.swift   # All 27 built-in command definitions
+    │   ├── DSLTypes.swift          # Type definitions (Command, Action, Selector, etc.)
+    │   ├── DSLParser.swift         # Text script parser
+    │   ├── DSLExecutor.swift       # Command executor with context management
+    │   ├── DSLExtension.swift      # Extension protocol definition
+    │   └── ExtensionRegistry.swift # Extension registration and lookup
+    ├── Extensions/                 # Application-specific extensions
+    │   └── ExcelExtension.swift    # Excel-specific commands (range, typeincell, getcell)
+    ├── MCP/                        # Model Context Protocol support
+    │   ├── MCPTypes.swift          # JSON-RPC and MCP type definitions
+    │   ├── MCPToolRegistry.swift   # MCP tool generation from CommandRegistry
+    │   └── MCPHandler.swift        # MCP request handling
+    ├── Core/                       # Core automation functionality
+    │   ├── AppLauncher.swift       # Application launching and window management
+    │   ├── ElementFinder.swift     # UI element discovery and search
+    │   ├── ElementInteraction.swift # Element interaction (click, type, etc.)
+    │   └── SystemState.swift       # System/app/window state retrieval
+    └── Utils/                      # Utility functions
+        └── Permissions.swift       # Accessibility permission handling
 ```
 
 ### UniControlApp (GUI)
@@ -275,12 +285,48 @@ executor.execute(commands)
 
 ## Adding New Features
 
-### Adding a New DSL Command
+### Adding a New Built-in DSL Command
 
-1. Add command case to `Command` enum in `DSL/DSLTypes.swift`
-2. Add parsing logic in `DSLParser.parseCommand()` in `DSL/DSLParser.swift`
-3. Add execution logic in `DSLExecutor.executeCommand()` in `DSL/DSLExecutor.swift`
-4. Implement the underlying functionality in appropriate Core module
+UniControl uses a **unified CommandRegistry** that auto-generates MCP tools and autocomplete from a single source of truth. To add a new built-in command:
+
+1. **Define the CommandDescriptor** in `Sources/UniControlCore/DSL/BuiltInCommands.swift`:
+
+```swift
+public static let myCommand = CommandDescriptor(
+    verb: "mycommand",
+    mcpName: "my_command",
+    syntax: "mycommand <arg>",
+    description: "Short description for autocomplete",
+    detailedDescription: "Longer description for MCP tools",
+    category: .basicActions,
+    parameters: [
+        ParameterDescriptor(
+            name: "arg",
+            type: .string,
+            description: "The argument"
+        )
+    ],
+    requiresElement: true  // if it needs a selected element
+)
+```
+
+2. **Add to the `all` array** in `BuiltInCommands.swift`
+
+3. **Add parsing logic** in `DSLParser.parseCommand()` in `DSL/DSLParser.swift`
+
+4. **Add execution logic** in `DSLExecutor.executeCommand()` in `DSL/DSLExecutor.swift`
+
+MCP tools and autocomplete suggestions are **automatically generated** from the CommandDescriptor.
+
+### Adding an Extension Command
+
+For application-specific commands (like Excel's `range`, `typeincell`):
+
+1. Create or update an extension in `Sources/UniControlCore/Extensions/`
+2. Add `CommandDescriptor` entries to the extension's `commandDescriptors` array
+3. Register the extension in `main.swift`: `ExtensionRegistry.shared.register(MyExtension.self)`
+
+See `docs/EXTENSION_SYSTEM.md` for detailed extension development guide.
 
 ### Adding a New Element Selector
 
@@ -308,7 +354,7 @@ executor.execute(commands)
 
 **Syntax Highlighting for New Commands**:
 1. Update regex in `DSLHighlightRules` in `DSLTextEditor.swift`
-2. Add completion entries in `DSLCompletionProvider.swift`
+2. Autocomplete is auto-generated from CommandRegistry (no manual update needed)
 
 ## Example Workflows
 
