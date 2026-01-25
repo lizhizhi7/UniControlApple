@@ -19,11 +19,6 @@ jobs:
     - name: Show Xcode version
       run: xcodebuild -version
 
-    - name: Resolve Swift Package dependencies
-      run: |
-        cd UniControlApp
-        xcodebuild -resolvePackageDependencies -project UniControlApp.xcodeproj -scheme UniControlApp
-
     - name: Build and Analyze UniControlApp
       run: |
         cd UniControlApp
