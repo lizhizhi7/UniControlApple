@@ -378,6 +378,19 @@ See `docs/EXTENSION_SYSTEM.md` for detailed extension development guide.
 - Usage: `./UniControl script.unictl`
 - Location: `Examples/DSLExamples.swift`
 
+## Development Workflow
+
+### Documentation Requirements
+
+**All implementation plans must include documentation updates as a final step.** When implementing a feature or refactoring, always check and update:
+
+1. **CLAUDE.md** - Project structure, adding new features sections
+2. **docs/EXTENSION_SYSTEM.md** - If extension-related changes
+3. **README.md** - User-facing documentation
+4. **SKILL.md** - LLM automation guidance (command references)
+
+This ensures documentation stays in sync with the codebase.
+
 ## Important Considerations
 
 - **Permissions**: The tool will fail silently or prompt for Accessibility permissions if not already granted. Users must manually grant these in System Settings > Privacy & Security > Accessibility.
