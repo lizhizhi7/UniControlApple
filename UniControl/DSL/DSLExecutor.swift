@@ -44,28 +44,6 @@ public class DSLExecutor {
         context.outputCapture?.recordResult(index, command: command, result: result)
     }
 
-    /// Refresh the current window reference if it has changed
-    /// This is important after actions that cause window changes (like clicking templates)
-    private func refreshCurrentWindowIfNeeded() {
-        // Get the current focused window
-        if let newWindow = getFrontmostAppFocusedWindow() {
-            // Check if it's different from our stored window
-            // We can't directly compare AXUIElements, so we compare window titles
-            let oldTitle = context.currentWindow.flatMap {
-                getAttribute($0, attribute: kAXTitleAttribute as CFString) as? String
-            }
-            let newTitle = getAttribute(newWindow, attribute: kAXTitleAttribute as CFString) as? String
-
-            if oldTitle != newTitle {
-                // Window changed - update it
-                context.currentWindow = newWindow
-                // Clear current element since it belongs to the old window
-                context.currentElement = nil
-                context.foundElements = []
-            }
-        }
-    }
-
     public func execute(_ commands: [Command], verbose: Bool = true) -> Bool {
         var successCount = 0
         var failureCount = 0
@@ -337,8 +315,6 @@ public class DSLExecutor {
             }
             // Use retry logic directly (includes all methods and -25206 handling)
             if clickElementWithRetry(element, debug: true) {
-                // After successful click, check if window changed (e.g., Excel template → new workbook)
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Click failed - tried all methods")
@@ -355,8 +331,6 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if doubleClickElement(element) {
-                // After successful double-click, check if window changed
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Double-click failed")
@@ -373,8 +347,6 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if rightClickElement(element) {
-                // After successful right-click, check if window changed
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Right-click failed")
@@ -387,10 +359,14 @@ public class DSLExecutor {
                 }
             }
 
-            guard let element = context.currentElement else {
-                return .failure(error: "No element selected. Use 'find' first.")
+            // If no element selected, type to whatever is currently focused
+            if context.currentElement == nil {
+                if typeAtCoordinate(text: text) {
+                    return .success(value: nil)
+                }
+                return .failure(error: "Failed to type text (no element selected)")
             }
-            return typeText(text, into: element)
+            return typeText(text, into: context.currentElement!)
 
         case .setValue(let value):
             guard let element = context.currentElement else {

@@ -203,6 +203,18 @@ public class MCPHandler {
         case "focus":
             return executeSimpleAction(.focus)
 
+        // Menu
+        case "select_menu_item":
+            return executeSelectMenuItem(arguments)
+        case "open_menu":
+            return executeOpenMenu(arguments)
+
+        // Increment/decrement
+        case "increment":
+            return executeSimpleAction(.increment)
+        case "decrement":
+            return executeSimpleAction(.decrement)
+
         // State queries
         case "get_system_info":
             return executeGetSystemInfo()
@@ -359,6 +371,38 @@ public class MCPHandler {
         }
     }
 
+    private func executeSelectMenuItem(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let path = args["path"]?.stringValue else {
+            return .error("Missing required parameter: path")
+        }
+
+        let command = Command.perform(action: .selectMenuItem(path: path))
+        let result = executeCommand(command)
+
+        switch result {
+        case .success:
+            return .text("Menu item selected: \(path)")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeOpenMenu(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let name = args["name"]?.stringValue else {
+            return .error("Missing required parameter: name")
+        }
+
+        let command = Command.perform(action: .openMenu(name: name))
+        let result = executeCommand(command)
+
+        switch result {
+        case .success:
+            return .text("Menu opened: \(name)")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
     private func executeGetSystemInfo() -> MCPToolCallResult {
         let command = Command.getSystem
         let result = executeCommand(command)
@@ -375,9 +419,7 @@ public class MCPHandler {
     }
 
     private func executeGetWindows(_ args: [String: JSONValue]) -> MCPToolCallResult {
-        let activeOnly = args["active_only"]?.boolValue ?? false
-
-        let command = Command.getWindows(activeOnly: activeOnly)
+        let command = Command.getWindows
         let result = executeCommand(command)
 
         switch result {
@@ -392,9 +434,7 @@ public class MCPHandler {
     }
 
     private func executeGetApps(_ args: [String: JSONValue]) -> MCPToolCallResult {
-        let frontmostOnly = args["frontmost_only"]?.boolValue ?? false
-
-        let command = Command.getApps(frontmostOnly: frontmostOnly)
+        let command = Command.getApps
         let result = executeCommand(command)
 
         switch result {

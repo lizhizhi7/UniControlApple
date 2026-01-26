@@ -21,6 +21,72 @@ public class ExcelExtension: DSLExtension {
         "getcell"       // Read cell value: getcell A1 as varname
     ]
 
+    /// Full command descriptors for MCP tools and autocomplete
+    public static let commandDescriptors: [CommandDescriptor] = [
+        CommandDescriptor(
+            verb: "range",
+            mcpName: "excel_range",
+            syntax: "range <cell|range>",
+            description: "Navigate to Excel cell (e.g., A1, A1:B5)",
+            detailedDescription: "Navigate to a specific cell or select a range in Microsoft Excel. Uses the Name Box for navigation.",
+            category: .extension_,
+            parameters: [
+                ParameterDescriptor(
+                    name: "cell_ref",
+                    type: .string,
+                    description: "Cell reference (e.g., 'A1') or range (e.g., 'A1:B5')"
+                )
+            ],
+            requiresWindow: true,
+            extensionId: identifier
+        ),
+        CommandDescriptor(
+            verb: "typeincell",
+            mcpName: "excel_type_in_cell",
+            syntax: "typeincell <cell> <text>",
+            description: "Type text into Excel cell",
+            detailedDescription: "Navigate to a specific cell and type text into it. Automatically confirms with Enter.",
+            category: .extension_,
+            parameters: [
+                ParameterDescriptor(
+                    name: "cell_ref",
+                    type: .string,
+                    description: "Cell reference (e.g., 'A1')"
+                ),
+                ParameterDescriptor(
+                    name: "text",
+                    type: .string,
+                    description: "Text to type into the cell"
+                )
+            ],
+            requiresWindow: true,
+            extensionId: identifier
+        ),
+        CommandDescriptor(
+            verb: "getcell",
+            mcpName: "excel_get_cell",
+            syntax: "getcell <cell> [as <var>]",
+            description: "Read Excel cell value",
+            detailedDescription: "Read the value from a specific cell. Optionally store the value in a variable for later use.",
+            category: .extension_,
+            parameters: [
+                ParameterDescriptor(
+                    name: "cell_ref",
+                    type: .string,
+                    description: "Cell reference (e.g., 'A1')"
+                ),
+                ParameterDescriptor(
+                    name: "variable_name",
+                    type: .string,
+                    description: "Variable name to store the value (optional)",
+                    isRequired: false
+                )
+            ],
+            requiresWindow: true,
+            extensionId: identifier
+        )
+    ]
+
     public required init() {}
 
     public static func parse(_ line: String, verb: String, parts: [String]) -> ExtensionCommand? {

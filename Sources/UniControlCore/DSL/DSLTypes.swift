@@ -126,6 +126,8 @@ public struct WindowInfo: Codable, Sendable {
     public let isMain: Bool
     public let isMinimized: Bool
     public let isFullScreen: Bool
+    public let isFrontmost: Bool      // System's frontmost window
+    public let isWorking: Bool        // UniControl's current working window
     public let appName: String?
     public let appPID: Int32
 
@@ -138,6 +140,8 @@ public struct WindowInfo: Codable, Sendable {
         isMain: Bool,
         isMinimized: Bool,
         isFullScreen: Bool,
+        isFrontmost: Bool = false,
+        isWorking: Bool = false,
         appName: String?,
         appPID: Int32
     ) {
@@ -149,6 +153,8 @@ public struct WindowInfo: Codable, Sendable {
         self.isMain = isMain
         self.isMinimized = isMinimized
         self.isFullScreen = isFullScreen
+        self.isFrontmost = isFrontmost
+        self.isWorking = isWorking
         self.appName = appName
         self.appPID = appPID
     }
@@ -159,7 +165,8 @@ public struct AppInfo: Codable, Sendable {
     public let name: String
     public let bundleIdentifier: String?
     public let pid: Int32
-    public let isActive: Bool
+    public let isActive: Bool           // System's frontmost/active app
+    public let isWorking: Bool          // UniControl's current working app
     public let isHidden: Bool
     public let launchDate: Date?
 
@@ -168,6 +175,7 @@ public struct AppInfo: Codable, Sendable {
         bundleIdentifier: String?,
         pid: Int32,
         isActive: Bool,
+        isWorking: Bool = false,
         isHidden: Bool,
         launchDate: Date?
     ) {
@@ -175,6 +183,7 @@ public struct AppInfo: Codable, Sendable {
         self.bundleIdentifier = bundleIdentifier
         self.pid = pid
         self.isActive = isActive
+        self.isWorking = isWorking
         self.isHidden = isHidden
         self.launchDate = launchDate
     }
@@ -225,9 +234,9 @@ public enum Command {
     case custom(ExtensionCommand)
     // State retrieval commands
     case getSystem
-    case getWindows(activeOnly: Bool)
+    case getWindows
     case getElement
-    case getApps(frontmostOnly: Bool)
+    case getApps
 }
 
 /// Execution mode for error handling

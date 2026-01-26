@@ -139,35 +139,13 @@ public class DSLParser {
             return .getSystem
 
         case "getwindows":
-            // getwindows [active|all] - default to all
-            if parts.count >= 2 {
-                let modifier = parts[1].lowercased()
-                if modifier == "active" {
-                    return .getWindows(activeOnly: true)
-                }
-            }
-            return .getWindows(activeOnly: false)
-
-        case "getwindow":
-            // Shorthand for getwindows active
-            return .getWindows(activeOnly: true)
+            return .getWindows
 
         case "getelement":
             return .getElement
 
         case "getapps":
-            // getapps [frontmost|all] - default to all
-            if parts.count >= 2 {
-                let modifier = parts[1].lowercased()
-                if modifier == "frontmost" {
-                    return .getApps(frontmostOnly: true)
-                }
-            }
-            return .getApps(frontmostOnly: false)
-
-        case "getapp":
-            // Shorthand for getapps frontmost
-            return .getApps(frontmostOnly: true)
+            return .getApps
 
         default:
             // Check if an extension can handle this verb

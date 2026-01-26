@@ -75,7 +75,7 @@ public func captureWindow(_ window: AXUIElement) async -> CGImage? {
 @available(macOS 12.3, *)
 public func captureWindowSync(_ window: AXUIElement) -> CGImage? {
     let semaphore = DispatchSemaphore(value: 0)
-    var capturedImage: CGImage?
+    nonisolated(unsafe) var capturedImage: CGImage?
 
     Task {
         capturedImage = await captureWindow(window)

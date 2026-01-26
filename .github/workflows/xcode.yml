@@ -1,0 +1,55 @@
+name: Xcode
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
+
+    - name: Show Xcode version
+      run: xcodebuild -version
+
+    - name: Resolve Package Dependencies
+      run: |
+        cd UniControlApp
+        # Retry logic for intermittent Xcode SPM race condition bug
+        for i in 1 2 3; do
+          echo "Attempt $i of 3..."
+          if xcodebuild -resolvePackageDependencies \
+            -project UniControlApp.xcodeproj \
+            -scheme UniControlApp \
+            -skipPackagePluginValidation; then
+            echo "Package resolution succeeded"
+            break
+          fi
+          if [ $i -eq 3 ]; then
+            echo "Package resolution failed after 3 attempts"
+            exit 1
+          fi
+          echo "Retrying in 5 seconds..."
+          sleep 5
+        done
+
+    - name: Build and Analyze UniControlApp
+      run: |
+        cd UniControlApp
+        xcodebuild clean build analyze \
+          -project UniControlApp.xcodeproj \
+          -scheme UniControlApp \
+          -configuration Debug \
+          -destination 'platform=macOS' \
+          -skipPackagePluginValidation \
+          -onlyUsePackageVersionsFromResolvedFile \
+          CODE_SIGN_IDENTITY="-" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO

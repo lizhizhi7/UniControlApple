@@ -146,7 +146,7 @@ public func doubleClickElement(_ element: AXUIElement) -> Bool {
 /// Right-click on an element
 public func rightClickElement(_ element: AXUIElement) -> Bool {
     // Try AXShowMenuAction first (most common way to get context menu)
-    var result = AXUIElementPerformAction(element, kAXShowMenuAction as CFString)
+    let result = AXUIElementPerformAction(element, kAXShowMenuAction as CFString)
     if result == .success || result.rawValue == -25206 {
         return true
     }

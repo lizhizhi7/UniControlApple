@@ -44,28 +44,6 @@ public class DSLExecutor {
         context.outputCapture?.recordResult(index, command: command, result: result)
     }
 
-    /// Refresh the current window reference if it has changed
-    /// This is important after actions that cause window changes (like clicking templates)
-    private func refreshCurrentWindowIfNeeded() {
-        // Get the current focused window
-        if let newWindow = getFrontmostAppFocusedWindow() {
-            // Check if it's different from our stored window
-            // We can't directly compare AXUIElements, so we compare window titles
-            let oldTitle = context.currentWindow.flatMap {
-                getAttribute($0, attribute: kAXTitleAttribute as CFString) as? String
-            }
-            let newTitle = getAttribute(newWindow, attribute: kAXTitleAttribute as CFString) as? String
-
-            if oldTitle != newTitle {
-                // Window changed - update it
-                context.currentWindow = newWindow
-                // Clear current element since it belongs to the old window
-                context.currentElement = nil
-                context.foundElements = []
-            }
-        }
-    }
-
     public func execute(_ commands: [Command], verbose: Bool = true) -> Bool {
         var successCount = 0
         var failureCount = 0
@@ -156,14 +134,14 @@ public class DSLExecutor {
         case .getSystem:
             return executeGetSystem()
 
-        case .getWindows(let activeOnly):
-            return executeGetWindows(activeOnly: activeOnly)
+        case .getWindows:
+            return executeGetWindows()
 
         case .getElement:
             return executeGetElement()
 
-        case .getApps(let frontmostOnly):
-            return executeGetApps(frontmostOnly: frontmostOnly)
+        case .getApps:
+            return executeGetApps()
         }
     }
 
@@ -356,8 +334,6 @@ public class DSLExecutor {
             }
             // Use retry logic directly (includes all methods and -25206 handling)
             if clickElementWithRetry(element, debug: true) {
-                // After successful click, check if window changed (e.g., Excel template → new workbook)
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Click failed - tried all methods")
@@ -374,8 +350,6 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if doubleClickElement(element) {
-                // After successful double-click, check if window changed
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Double-click failed")
@@ -392,8 +366,6 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if rightClickElement(element) {
-                // After successful right-click, check if window changed
-                refreshCurrentWindowIfNeeded()
                 return .success(value: nil)
             }
             return .failure(error: "Right-click failed")
@@ -406,10 +378,14 @@ public class DSLExecutor {
                 }
             }
 
-            guard let element = context.currentElement else {
-                return .failure(error: "No element selected. Use 'find' first.")
+            // If no element selected, type to whatever is currently focused
+            if context.currentElement == nil {
+                if typeAtCoordinate(text: text) {
+                    return .success(value: nil)
+                }
+                return .failure(error: "Failed to type text (no element selected)")
             }
-            return typeText(text, into: element)
+            return typeText(text, into: context.currentElement!)
 
         case .setValue(let value):
             guard let element = context.currentElement else {
@@ -822,23 +798,31 @@ public class DSLExecutor {
         return .success(value: info)
     }
 
-    /// Execute getwindows command - get window information
-    private func executeGetWindows(activeOnly: Bool) -> CommandResult {
-        let windows = getWindowsInfo(activeOnly: activeOnly)
+    /// Execute getwindows command - get all windows with frontmost/working markers
+    private func executeGetWindows() -> CommandResult {
+        // Get the working window's PID for comparison
+        var workingWindowPID: pid_t = 0
+        if let workingWindow = context.currentWindow {
+            AXUIElementGetPid(workingWindow, &workingWindowPID)
+        }
+        let workingWindowTitle = context.currentWindow.flatMap {
+            getAttribute($0, attribute: kAXTitleAttribute as CFString) as? String
+        }
+
+        // Get all windows with markers
+        let windows = getWindowsInfoWithMarkers(workingWindowPID: workingWindowPID, workingWindowTitle: workingWindowTitle)
 
         if windows.isEmpty {
             return .failure(error: "No windows found")
         }
 
-        if activeOnly {
-            if let win = windows.first {
-                output("Active window: \"\(win.title ?? "Untitled")\" (\(win.appName ?? "Unknown"))", level: .info)
-            }
-        } else {
-            output("Found \(windows.count) window(s):", level: .info)
-            for (index, win) in windows.enumerated() {
-                output("  [\(index)] \"\(win.title ?? "Untitled")\" - \(win.appName ?? "Unknown")", level: .info)
-            }
+        output("Found \(windows.count) window(s):", level: .info)
+        for (index, win) in windows.enumerated() {
+            var markers: [String] = []
+            if win.isFrontmost { markers.append("frontmost") }
+            if win.isWorking { markers.append("working") }
+            let markerStr = markers.isEmpty ? "" : " [\(markers.joined(separator: ", "))]"
+            output("  [\(index)] \"\(win.title ?? "Untitled")\" - \(win.appName ?? "Unknown")\(markerStr)", level: .info)
         }
 
         return .success(value: windows)
@@ -860,25 +844,29 @@ public class DSLExecutor {
         return .success(value: info)
     }
 
-    /// Execute getapps command - get running applications
-    private func executeGetApps(frontmostOnly: Bool) -> CommandResult {
-        let apps = getRunningApps(frontmostOnly: frontmostOnly)
+    /// Execute getapps command - get all running applications with frontmost/working markers
+    private func executeGetApps() -> CommandResult {
+        // Get the working window's PID to identify the working app
+        var workingAppPID: pid_t = 0
+        if let workingWindow = context.currentWindow {
+            AXUIElementGetPid(workingWindow, &workingAppPID)
+        }
+
+        // Get all apps with markers
+        let apps = getRunningAppsWithMarkers(workingAppPID: workingAppPID)
 
         if apps.isEmpty {
             return .failure(error: "No applications found")
         }
 
-        if frontmostOnly {
-            if let app = apps.first {
-                output("Frontmost: \(app.name) (PID: \(app.pid))", level: .info)
-            }
-        } else {
-            output("Running applications (\(apps.count)):", level: .info)
-            for app in apps {
-                let activeStr = app.isActive ? " [active]" : ""
-                let hiddenStr = app.isHidden ? " [hidden]" : ""
-                output("  \(app.name)\(activeStr)\(hiddenStr) (PID: \(app.pid))", level: .info)
-            }
+        output("Running applications (\(apps.count)):", level: .info)
+        for app in apps {
+            var markers: [String] = []
+            if app.isActive { markers.append("frontmost") }
+            if app.isWorking { markers.append("working") }
+            if app.isHidden { markers.append("hidden") }
+            let markerStr = markers.isEmpty ? "" : " [\(markers.joined(separator: ", "))]"
+            output("  \(app.name)\(markerStr) (PID: \(app.pid))", level: .info)
         }
 
         return .success(value: apps)
