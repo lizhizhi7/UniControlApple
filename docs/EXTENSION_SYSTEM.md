@@ -104,27 +104,38 @@ Every extension must conform to this protocol:
 // Location: Sources/UniControlCore/DSL/DSLExtension.swift
 
 public protocol DSLExtension {
-    /// Unique identifier for this extension (e.g., "excel", "finder")
+    // MARK: - Identity
     static var identifier: String { get }
-
-    /// List of command verbs this extension handles (lowercase)
     static var supportedCommands: [String] { get }
+    static var commandDescriptors: [CommandDescriptor] { get }
 
-    /// Parse a DSL line into an ExtensionCommand
-    /// - Parameters:
-    ///   - line: The full DSL line
-    ///   - verb: The command verb (first word, lowercased)
-    ///   - parts: All whitespace-separated parts of the line
-    /// - Returns: An ExtensionCommand if parsing succeeds, nil otherwise
+    // MARK: - Metadata (all have defaults)
+    static var displayName: String { get }         // defaults to identifier.capitalized
+    static var version: String { get }             // defaults to "1.0.0"
+    static var author: String { get }              // defaults to "Unknown"
+    static var extensionDescription: String { get } // defaults to "Extension: <id>"
+    static var targetApplication: String? { get }  // defaults to nil
+    static var systemImageName: String { get }     // defaults to "puzzlepiece.extension"
+
+    // MARK: - Lifecycle
+    func onActivate()    // called when extension is enabled
+    func onDeactivate()  // called when extension is disabled
+
+    // MARK: - Execution Hooks
+    func willExecuteCommand(_ command: Command, context: ExecutionContext)
+    func didExecuteCommand(_ command: Command, result: CommandResult, context: ExecutionContext)
+
+    // MARK: - Configuration
+    static var configDescriptors: [ExtensionConfigDescriptor] { get }
+
+    // MARK: - Core
     static func parse(_ line: String, verb: String, parts: [String]) -> ExtensionCommand?
-
-    /// Execute an extension command
     func execute(_ command: ExtensionCommand, context: ExecutionContext, verbose: Bool) -> CommandResult
-
-    /// Required initializer
     init()
 }
 ```
+
+All metadata, lifecycle, hook, and config properties have default no-op implementations via protocol extension, so existing extensions continue to work without changes.
 
 ### 2. The `ExtensionCommand` Structure
 
@@ -153,7 +164,7 @@ The `ExtensionRegistry` is a singleton that manages all registered extensions:
 // Register an extension
 ExtensionRegistry.shared.register(MyExtension.self)
 
-// Check if a verb is handled
+// Check if a verb is handled (returns false for disabled extensions)
 ExtensionRegistry.shared.canHandle(verb: "mycommand")
 
 // Get all registered verbs
@@ -161,7 +172,20 @@ let verbs = ExtensionRegistry.shared.registeredVerbs()
 
 // Get extension ID for a verb
 let extId = ExtensionRegistry.shared.extensionId(for: "range")  // "excel"
+
+// Enable/disable extensions
+ExtensionRegistry.shared.setEnabled(false, for: "excel")
+ExtensionRegistry.shared.isEnabled("excel")  // false
+
+// Get metadata about all extensions (for UI)
+let extensions: [ExtensionInfo] = ExtensionRegistry.shared.registeredExtensions()
+
+// Extension configuration
+ExtensionRegistry.shared.setConfig(extensionId: "excel", key: "navigationDelay", value: "0.5")
+let delay = ExtensionRegistry.shared.getConfig(extensionId: "excel", key: "navigationDelay")
 ```
+
+The `ExtensionInfo` struct provides all metadata needed for UI display (identifier, displayName, version, author, description, commands, config descriptors, enabled state).
 
 ### 4. The `ExecutionContext`
 
@@ -746,6 +770,83 @@ public static var commandDescriptors: [CommandDescriptor] {
         )
     }
 }
+```
+
+---
+
+## Extension Management GUI
+
+UniControlApp includes an **Extensions** tab that provides a visual interface for managing extensions.
+
+### Features
+
+- **Extension Cards**: Each extension displays its icon, name, version, description, target application, author, and command count
+- **Enable/Disable Toggle**: Extensions can be enabled or disabled per-extension. Disabled extensions cannot handle commands and their verbs are rejected during script execution
+- **Command List**: Expandable section showing all commands with syntax and descriptions
+- **Configuration**: If an extension defines `configDescriptors`, the UI shows editable settings (text fields, toggles) for each config key
+
+### Persistence
+
+Extension enable/disable state and configuration values are persisted in `AppSettings` via UserDefaults. On app launch, the saved state is synced to `ExtensionRegistry`.
+
+### Adding UI for New Extensions
+
+No manual UI work is needed. When you register a new extension, it automatically appears in the Extensions tab with all metadata, commands, and config settings.
+
+---
+
+## Extension Lifecycle & Hooks
+
+### Lifecycle Hooks
+
+Extensions can implement `onActivate()` and `onDeactivate()` to perform setup/teardown when enabled or disabled:
+
+```swift
+func onActivate() {
+    // Called when extension is enabled
+}
+
+func onDeactivate() {
+    // Called when extension is disabled
+}
+```
+
+### Execution Hooks
+
+Extensions can observe all command executions (not just their own) via `willExecuteCommand` and `didExecuteCommand`:
+
+```swift
+func willExecuteCommand(_ command: Command, context: ExecutionContext) {
+    // Called before any command executes
+}
+
+func didExecuteCommand(_ command: Command, result: CommandResult, context: ExecutionContext) {
+    // Called after any command executes
+}
+```
+
+These hooks are only called for enabled extensions.
+
+### Extension Configuration
+
+Extensions can define configurable settings using `ExtensionConfigDescriptor`:
+
+```swift
+public static let configDescriptors: [ExtensionConfigDescriptor] = [
+    ExtensionConfigDescriptor(
+        key: "retryCount",
+        displayName: "Retry Count",
+        type: .integer,
+        defaultValue: "3",
+        description: "Number of retries for cell navigation"
+    )
+]
+```
+
+Config values are stored in `ExtensionRegistry` and can be read at runtime:
+
+```swift
+let value = ExtensionRegistry.shared.getConfig(extensionId: "excel", key: "retryCount")
 ```
 
 ---

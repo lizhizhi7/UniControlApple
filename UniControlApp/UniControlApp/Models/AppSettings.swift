@@ -14,6 +14,8 @@ struct AppSettings: Codable, Equatable {
     var serverPort: Int = 8080
     var autoStartServer: Bool = true
     var maxHistoryItems: Int = 100
+    var disabledExtensions: [String] = []
+    var extensionConfigs: [String: [String: String]] = [:]
 
     enum ExecutionModeOption: String, Codable, CaseIterable {
         case strict = "strict"

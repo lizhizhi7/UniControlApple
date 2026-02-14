@@ -106,6 +106,23 @@ public class DSLExecutor {
     }
 
     private func executeCommand(_ command: Command, index: Int = 0) -> CommandResult {
+        // Call willExecuteCommand hooks on all enabled extensions
+        let enabledExtensions = ExtensionRegistry.shared.enabledInstances()
+        for ext in enabledExtensions {
+            ext.willExecuteCommand(command, context: context)
+        }
+
+        let result = executeCommandCore(command, index: index)
+
+        // Call didExecuteCommand hooks on all enabled extensions
+        for ext in enabledExtensions {
+            ext.didExecuteCommand(command, result: result, context: context)
+        }
+
+        return result
+    }
+
+    private func executeCommandCore(_ command: Command, index: Int = 0) -> CommandResult {
         switch command {
         case .launch(let appName):
             return executeLaunch(appName)

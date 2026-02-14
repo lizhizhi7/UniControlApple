@@ -21,6 +21,34 @@ public class ExcelExtension: DSLExtension {
         "getcell"       // Read cell value: getcell A1 as varname
     ]
 
+    // MARK: - Metadata
+
+    public static let displayName = "Microsoft Excel"
+    public static let version = "1.0.0"
+    public static let author = "UniControl Team"
+    public static let extensionDescription = "Cell navigation and manipulation commands for Microsoft Excel. Navigate to cells, type values, and read cell contents using the Name Box and Formula Bar."
+    public static let targetApplication: String? = "Microsoft Excel"
+    public static let systemImageName = "tablecells"
+
+    // MARK: - Configuration
+
+    public static let configDescriptors: [ExtensionConfigDescriptor] = [
+        ExtensionConfigDescriptor(
+            key: "navigationDelay",
+            displayName: "Navigation Delay",
+            type: .number,
+            defaultValue: "0.3",
+            description: "Seconds to wait after cell navigation"
+        ),
+        ExtensionConfigDescriptor(
+            key: "typeDelay",
+            displayName: "Type Delay",
+            type: .number,
+            defaultValue: "0.02",
+            description: "Seconds between keystrokes when typing"
+        )
+    ]
+
     /// Full command descriptors for MCP tools and autocomplete
     public static let commandDescriptors: [CommandDescriptor] = [
         CommandDescriptor(

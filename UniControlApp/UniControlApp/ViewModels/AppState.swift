@@ -33,6 +33,7 @@ class AppState {
 
     enum Tab: String, CaseIterable {
         case scripts = "Scripts"
+        case extensions = "Extensions"
         case settings = "Settings"
     }
 
@@ -51,6 +52,23 @@ class AppState {
     private func applySettings() {
         serverManager.verboseLogging = settings.logLevel == .debug
         serverManager.defaultExecutionMode = settings.executionMode.toExecutionMode()
+        syncExtensionState()
+    }
+
+    /// Sync extension enable/disable state and configs from settings to registry
+    private func syncExtensionState() {
+        let registry = ExtensionRegistry.shared
+        // First enable all, then disable the ones in the disabled list
+        for ext in registry.registeredExtensions() {
+            let shouldBeEnabled = !settings.disabledExtensions.contains(ext.identifier)
+            registry.setEnabled(shouldBeEnabled, for: ext.identifier)
+        }
+        // Sync config values
+        for (extId, configs) in settings.extensionConfigs {
+            for (key, value) in configs {
+                registry.setConfig(extensionId: extId, key: key, value: value)
+            }
+        }
     }
 
     // MARK: - Server Callbacks

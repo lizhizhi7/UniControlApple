@@ -88,8 +88,9 @@ UniControlApp/
 ├── AppDelegate.swift               # NSApplicationDelegate for menu bar
 ├── MenuBarController.swift         # Menu bar popover management
 ├── Views/
-│   ├── ContentView.swift           # Main container with tabs
+│   ├── ContentView.swift           # Main container with tabs (Scripts, Extensions, Settings)
 │   ├── ScriptEditorView.swift      # Script library + editor + execution history
+│   ├── ExtensionsView.swift        # Extension management (enable/disable, config, commands)
 │   ├── SettingsView.swift          # Server and permission settings
 │   ├── ViewHelpers.swift           # Shared utilities (Formatters, badges, sheets)
 │   └── Components/
@@ -133,6 +134,21 @@ UniControlApp/
   - Manages execution context
   - Error handling and reporting
   - Verbose logging option
+  - Calls extension `willExecuteCommand`/`didExecuteCommand` hooks around each command
+
+- **DSLExtension.swift**
+  - `DSLExtension` protocol with metadata (displayName, version, author, description, targetApplication, systemImageName)
+  - Lifecycle hooks (`onActivate`, `onDeactivate`)
+  - Execution hooks (`willExecuteCommand`, `didExecuteCommand`)
+  - Configuration via `ExtensionConfigDescriptor`
+  - All new properties have default implementations
+
+- **ExtensionRegistry.swift**
+  - Singleton managing extension registration, lookup, enable/disable, and configuration
+  - `ExtensionInfo` struct for UI display of extension metadata
+  - `registeredExtensions()` returns metadata for all registered extensions
+  - `setEnabled`/`isEnabled` for enable/disable with persistence support
+  - `getConfig`/`setConfig` for extension-scoped configuration
 
 #### 2. Core Layer (`UniControl/Core/`)
 
@@ -187,8 +203,9 @@ UniControlApp/
 ### UniControlApp Architecture
 
 **View Layer** (`Views/`):
-- `ContentView` - Tab container (Scripts, Settings) with header showing server status
+- `ContentView` - Tab container (Scripts, Extensions, Settings) with header showing server status
 - `ScriptEditorView` - HSplitView with script library (left) and editor + history (right)
+- `ExtensionsView` - Extension management with cards showing metadata, enable/disable toggle, command list, and config settings
 - `DSLTextEditor` - HighlightedTextEditor wrapper with syntax highlighting and autocomplete popup
 - `ViewHelpers` - Shared components: `Formatters` (time/duration), `RemoteBadge`, `VersionBadge`, `ScriptNameSheet`
 
@@ -200,7 +217,7 @@ UniControlApp/
 - `SavedScript` - Script with name, content, versions array, and execution history
 - `SavedScript.ScriptVersion` - Versioned snapshot with content, timestamp, and optional note
 - `SavedScript.VersionExecution` - Execution record with session ID, duration, command results
-- `AppSettings` - User preferences persisted to UserDefaults
+- `AppSettings` - User preferences persisted to UserDefaults (includes disabled extensions list and extension configs)
 
 **Service Layer** (`Services/`):
 - `ScriptLibrary` - Script CRUD, selection, search, sort, and content change tracking

@@ -36,6 +36,8 @@ struct ContentView: View {
             switch appState.selectedTab {
             case .scripts:
                 ScriptEditorView(appState: appState)
+            case .extensions:
+                ExtensionsView(appState: appState)
             case .settings:
                 SettingsView(appState: appState)
             }
