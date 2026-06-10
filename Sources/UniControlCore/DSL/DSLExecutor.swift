@@ -139,6 +139,15 @@ public class DSLExecutor {
         }
     }
 
+    private func interp(_ assertion: Assertion) -> Assertion {
+        switch assertion {
+        case .exists(let selector): return .exists(interp(selector))
+        case .notExists(let selector): return .notExists(interp(selector))
+        case .value(let expected): return .value(interp(expected))
+        case .enabled: return assertion
+        }
+    }
+
     /// Substitute $variables into a command's string arguments at execution
     /// time, so values captured earlier in the script (set/getvalue) flow
     /// into later commands.
@@ -152,12 +161,10 @@ public class DSLExecutor {
         case .log(let message): return .log(message: interp(message))
         case .setVariable(let name, let value): return .setVariable(name: name, value: interp(value))
         case .assert(let assertion):
-            switch assertion {
-            case .exists(let selector): return .assert(.exists(interp(selector)))
-            case .notExists(let selector): return .assert(.notExists(interp(selector)))
-            case .value(let expected): return .assert(.value(interp(expected)))
-            case .enabled: return command
-            }
+            return .assert(interp(assertion))
+        case .conditional(let condition, let thenCommands, let elseCommands):
+            // Sub-commands interpolate when they execute (variables may change inside the block)
+            return .conditional(condition: interp(condition), thenCommands: thenCommands, elseCommands: elseCommands)
         case .perform(let action):
             switch action {
             case .type(let text): return .perform(action: .type(interp(text)))
@@ -216,6 +223,12 @@ public class DSLExecutor {
 
         case .screenshot(let path):
             return executeScreenshot(path: path)
+
+        case .conditional(let condition, let thenCommands, let elseCommands):
+            return executeConditional(condition, thenCommands: thenCommands, elseCommands: elseCommands)
+
+        case .repeatBlock(let count, let commands):
+            return executeRepeat(count: count, commands: commands)
 
         case .reset:
             context.reset()
@@ -487,6 +500,84 @@ public class DSLExecutor {
                 }
             }
         }
+    }
+
+    // MARK: - Control Flow
+
+    /// Evaluate an assertion as a boolean condition (no pass/fail output).
+    /// Returns a failure string only when the condition cannot be evaluated
+    /// at all (no window/element in context).
+    private enum ConditionEvaluation {
+        case holds(Bool)
+        case cannotEvaluate(String)
+    }
+
+    private func evaluateCondition(_ assertion: Assertion) -> ConditionEvaluation {
+        switch assertion {
+        case .exists(let selector):
+            guard let window = context.currentWindow else {
+                return .cannotEvaluate("No active window. Launch an app or use 'usewindow' first.")
+            }
+            return .holds(!resolveSelector(selector, in: window).isEmpty)
+
+        case .notExists(let selector):
+            guard let window = context.currentWindow else {
+                return .cannotEvaluate("No active window. Launch an app or use 'usewindow' first.")
+            }
+            return .holds(resolveSelector(selector, in: window).isEmpty)
+
+        case .enabled(let expected):
+            guard let element = context.currentElement else {
+                return .cannotEvaluate("No element selected. Use 'find' first.")
+            }
+            let enabled = (getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool) ?? false
+            return .holds(enabled == expected)
+
+        case .value(let expected):
+            guard let element = context.currentElement else {
+                return .cannotEvaluate("No element selected. Use 'find' first.")
+            }
+            return .holds((buildElementInfo(element).value ?? "") == expected)
+        }
+    }
+
+    /// Run a block of nested commands, honoring the execution mode:
+    /// strict stops at the first failure, continue runs everything.
+    private func executeBlock(_ commands: [Command]) -> CommandResult {
+        var failures = 0
+        for command in commands {
+            let result = executeCommand(command)
+            if case .failure(let error) = result {
+                failures += 1
+                if context.mode == .strict {
+                    return .failure(error: error)
+                }
+                output("Error: \(error)", level: .error)
+            }
+        }
+        return failures == 0 ? .success(value: nil) : .failure(error: "\(failures) command(s) failed in block")
+    }
+
+    private func executeConditional(_ condition: Assertion, thenCommands: [Command], elseCommands: [Command]) -> CommandResult {
+        switch evaluateCondition(condition) {
+        case .cannotEvaluate(let error):
+            return .failure(error: error)
+        case .holds(let holds):
+            let branch = holds ? thenCommands : elseCommands
+            output("Condition \(condition) \(holds ? "holds" : "does not hold") — running \(branch.count) command(s)", level: .info)
+            return executeBlock(branch)
+        }
+    }
+
+    private func executeRepeat(count: Int, commands: [Command]) -> CommandResult {
+        for iteration in 1...count {
+            output("Repeat iteration \(iteration)/\(count)", level: .info)
+            let result = executeBlock(commands)
+            if case .failure = result, context.mode == .strict {
+                return result
+            }
+        }
+        return .success(value: nil)
     }
 
     // MARK: - Assertions

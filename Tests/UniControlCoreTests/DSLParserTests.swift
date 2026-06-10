@@ -294,6 +294,70 @@ final class DSLParserTests: XCTestCase {
         XCTAssertEqual(DSLParser.parseWithDiagnostics("clickat 10 20 triple").errors.count, 1)
     }
 
+    // MARK: - Blocks
+
+    func testIfElseEnd() {
+        let script = """
+        if exists Save role: AXButton
+          click
+        else
+          log no save button
+        end
+        """
+        let outcome = DSLParser.parseWithDiagnostics(script)
+        XCTAssertFalse(outcome.hasErrors, "\(outcome.errors)")
+        XCTAssertEqual(outcome.commands.count, 1)
+        guard case .conditional(.exists, let thenCommands, let elseCommands) = outcome.commands[0] else {
+            return XCTFail("Expected conditional")
+        }
+        XCTAssertEqual(thenCommands.count, 1)
+        XCTAssertEqual(elseCommands.count, 1)
+    }
+
+    func testRepeatBlock() {
+        let outcome = DSLParser.parseWithDiagnostics("repeat 3\n  click\n  wait 0.1\nend")
+        XCTAssertFalse(outcome.hasErrors)
+        guard case .repeatBlock(3, let commands) = outcome.commands[0] else {
+            return XCTFail("Expected repeatBlock")
+        }
+        XCTAssertEqual(commands.count, 2)
+    }
+
+    func testNestedBlocks() {
+        let script = """
+        repeat 2
+          if exists Next
+            click
+          end
+        end
+        """
+        let outcome = DSLParser.parseWithDiagnostics(script)
+        XCTAssertFalse(outcome.hasErrors, "\(outcome.errors)")
+        guard case .repeatBlock(2, let body) = outcome.commands[0],
+              case .conditional = body[0] else {
+            return XCTFail("Expected nested conditional inside repeat")
+        }
+    }
+
+    func testBlockErrors() {
+        // end without block
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("end").errors.count, 1)
+        // unclosed block reports the opening line
+        let unclosed = DSLParser.parseWithDiagnostics("click\nif exists X\nclick")
+        XCTAssertEqual(unclosed.errors.count, 1)
+        XCTAssertEqual(unclosed.errors[0].line, 2)
+        // else outside if
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("else").errors.count, 1)
+        // duplicate else
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("if enabled\nelse\nelse\nend").errors.count, 1)
+        // else inside repeat is invalid
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("repeat 2\nelse\nend").errors.count, 1)
+        // bad repeat count
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("repeat zero\nend").errors.count, 1)
+        // if without condition
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("if\nend").errors.count, 1)
+    }
+
     // MARK: - Aliases
 
     func testAliases() {

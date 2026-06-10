@@ -528,6 +528,10 @@ public enum BuiltInCommands {
             - dumptree [depth]: Dump UI element tree for discovery
             - screenshot [path]: Capture current window to PNG
             - clickat <x> <y> [right|double]: Click at screen coordinates
+            - set <name> = <value>: Store a variable; use as $name / ${name} in later arguments
+            - getvalue <name>: Store the current element's value into a variable
+            - if <condition> ... [else ...] end: Branch on an assert-style condition
+            - repeat <n> ... end: Run a block n times (blocks can nest)
             - reset: Clear session context
             - log <message>: Log a message
 

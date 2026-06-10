@@ -253,6 +253,17 @@ public enum Assertion {
     case value(String)                  // current element's value equals the given string
 }
 
+extension Assertion: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .exists(let selector): return "exists \(selector)"
+        case .notExists(let selector): return "missing \(selector)"
+        case .enabled(let expected): return expected ? "enabled" : "disabled"
+        case .value(let expected): return "value \"\(expected)\""
+        }
+    }
+}
+
 /// Represents a command in the DSL
 public enum Command {
     case launch(appName: String)
@@ -265,6 +276,8 @@ public enum Command {
     case screenshot(path: String?)
     case setVariable(name: String, value: String)
     case readValue(variableName: String)
+    case conditional(condition: Assertion, thenCommands: [Command], elseCommands: [Command])
+    case repeatBlock(count: Int, commands: [Command])
     case reset
     case log(message: String)
     case mode(ExecutionMode)

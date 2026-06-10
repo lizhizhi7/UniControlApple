@@ -50,13 +50,45 @@ public class DSLParser {
         return parseWithDiagnostics(script).commands
     }
 
+    /// An if/repeat block whose `end` has not been reached yet
+    private struct OpenBlock {
+        enum Kind {
+            case conditional(Assertion)
+            case repeatLoop(Int)
+        }
+        let kind: Kind
+        let line: Int           // line the block started on (for diagnostics)
+        var thenCommands: [Command] = []
+        var elseCommands: [Command] = []
+        var inElse = false
+
+        var keyword: String {
+            if case .conditional = kind { return "if" }
+            return "repeat"
+        }
+    }
+
     /// Parse a script and report every invalid line with its line number.
+    /// Supports `if <condition> ... [else ...] end` and `repeat <n> ... end`
+    /// blocks (conditions use the same syntax as `assert`).
     public static func parseWithDiagnostics(_ script: String) -> ParseOutcome {
         var commands: [Command] = []
         var errors: [ParseError] = []
+        var stack: [OpenBlock] = []
         let lines = script.components(separatedBy: .newlines)
 
+        func append(_ command: Command) {
+            if stack.isEmpty {
+                commands.append(command)
+            } else if stack[stack.count - 1].inElse {
+                stack[stack.count - 1].elseCommands.append(command)
+            } else {
+                stack[stack.count - 1].thenCommands.append(command)
+            }
+        }
+
         for (lineIndex, line) in lines.enumerated() {
+            let lineNumber = lineIndex + 1
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 
             // Skip empty lines and comments
@@ -64,12 +96,70 @@ public class DSLParser {
                 continue
             }
 
-            switch parseCommand(trimmed) {
-            case .success(let command):
-                commands.append(command)
-            case .failure(let failure):
-                errors.append(ParseError(line: lineIndex + 1, text: trimmed, message: failure.message))
+            let parts = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            let verb = parts[0].lowercased()
+
+            switch verb {
+            case "if":
+                // On a bad header, still open a placeholder block so the matching
+                // 'end' doesn't produce a second spurious error. Scripts with
+                // parse errors are never executed, so the placeholder is inert.
+                guard parts.count >= 2 else {
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: "'if' requires a condition (same syntax as assert): if exists <selector>, if missing <selector>, if enabled, if disabled, if value <text>"))
+                    stack.append(OpenBlock(kind: .conditional(.enabled(true)), line: lineNumber))
+                    continue
+                }
+                switch parseAssertion(Array(parts[1...])) {
+                case .success(let condition):
+                    stack.append(OpenBlock(kind: .conditional(condition), line: lineNumber))
+                case .failure(let failure):
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: failure.message))
+                    stack.append(OpenBlock(kind: .conditional(.enabled(true)), line: lineNumber))
+                }
+
+            case "else":
+                guard !stack.isEmpty, case .conditional = stack[stack.count - 1].kind else {
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: "'else' outside an 'if' block"))
+                    continue
+                }
+                guard !stack[stack.count - 1].inElse else {
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: "Duplicate 'else' in the same 'if' block"))
+                    continue
+                }
+                stack[stack.count - 1].inElse = true
+
+            case "end":
+                guard let block = stack.popLast() else {
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: "'end' without a matching 'if' or 'repeat'"))
+                    continue
+                }
+                switch block.kind {
+                case .conditional(let condition):
+                    append(.conditional(condition: condition, thenCommands: block.thenCommands, elseCommands: block.elseCommands))
+                case .repeatLoop(let count):
+                    append(.repeatBlock(count: count, commands: block.thenCommands))
+                }
+
+            case "repeat":
+                guard parts.count >= 2, let count = Int(parts[1]), count > 0 else {
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: "'repeat' requires a positive count (repeat <n> ... end)"))
+                    stack.append(OpenBlock(kind: .repeatLoop(1), line: lineNumber))
+                    continue
+                }
+                stack.append(OpenBlock(kind: .repeatLoop(count), line: lineNumber))
+
+            default:
+                switch parseCommand(trimmed) {
+                case .success(let command):
+                    append(command)
+                case .failure(let failure):
+                    errors.append(ParseError(line: lineNumber, text: trimmed, message: failure.message))
+                }
             }
+        }
+
+        for block in stack {
+            errors.append(ParseError(line: block.line, text: block.keyword, message: "'\(block.keyword)' block starting here is never closed — add 'end'"))
         }
 
         return ParseOutcome(commands: commands, errors: errors)
