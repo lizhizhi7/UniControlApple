@@ -188,14 +188,52 @@ final class DSLParserTests: XCTestCase {
     // MARK: - usewindow / dumptree / reset / setvalue
 
     func testUseWindow() {
-        guard case .useWindow(let title) = DSLParser.parse("usewindow My Document")[0] else {
+        guard case .useWindow(let title, nil) = DSLParser.parse("usewindow My Document")[0] else {
             return XCTFail("Expected useWindow")
         }
         XCTAssertEqual(title, "My Document")
 
-        guard case .useWindow(nil) = DSLParser.parse("usewindow")[0] else {
+        guard case .useWindow(nil, nil) = DSLParser.parse("usewindow")[0] else {
             return XCTFail("Expected useWindow with nil title")
         }
+
+        guard case .useWindow("My Doc", "src") = DSLParser.parse("usewindow My Doc as src")[0] else {
+            return XCTFail("Expected useWindow with alias")
+        }
+
+        guard case .useWindow("@src", nil) = DSLParser.parse("usewindow @src")[0] else {
+            return XCTFail("Expected useWindow alias recall")
+        }
+    }
+
+    // MARK: - Variables
+
+    func testSetVariable() {
+        guard case .setVariable("name", "John Doe") = DSLParser.parse("set name = John Doe")[0] else {
+            return XCTFail("Expected setVariable")
+        }
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("set name John").errors.count, 1)
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("set 1bad = x").errors.count, 1)
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("set").errors.count, 1)
+    }
+
+    func testGetValue() {
+        guard case .readValue("total") = DSLParser.parse("getvalue total")[0] else {
+            return XCTFail("Expected readValue")
+        }
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("getvalue").errors.count, 1)
+    }
+
+    func testInterpolateVariables() {
+        let vars: [String: Any] = ["name": "World", "n": 42]
+        XCTAssertEqual(interpolateVariables("Hello $name!", variables: vars), "Hello World!")
+        XCTAssertEqual(interpolateVariables("${name}s", variables: vars), "Worlds")
+        XCTAssertEqual(interpolateVariables("count: $n", variables: vars), "count: 42")
+        // unknown variables and bare $ are left as-is
+        XCTAssertEqual(interpolateVariables("$unknown stays", variables: vars), "$unknown stays")
+        XCTAssertEqual(interpolateVariables("cost: $5", variables: vars), "cost: $5")
+        XCTAssertEqual(interpolateVariables("no dollars", variables: vars), "no dollars")
+        XCTAssertEqual(interpolateVariables("$name$n", variables: vars), "World42")
     }
 
     func testDumpTree() {

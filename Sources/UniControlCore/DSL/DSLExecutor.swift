@@ -122,7 +122,58 @@ public class DSLExecutor {
         return result
     }
 
-    private func executeCommandCore(_ command: Command, index: Int = 0) -> CommandResult {
+    // MARK: - Variable Interpolation
+
+    private func interp(_ s: String) -> String {
+        interpolateVariables(s, variables: context.variables)
+    }
+
+    private func interp(_ selector: ElementSelector) -> ElementSelector {
+        switch selector {
+        case .byTitle(let title): return .byTitle(interp(title))
+        case .byRole(let role): return .byRole(interp(role))
+        case .byTitleAndRole(let title, let role): return .byTitleAndRole(title: interp(title), role: interp(role))
+        case .byIndex, .all: return selector
+        case .byState(let role, let state): return .byState(role: interp(role), state: interp(state))
+        case .byRegex(let pattern): return .byRegex(pattern: interp(pattern))
+        }
+    }
+
+    /// Substitute $variables into a command's string arguments at execution
+    /// time, so values captured earlier in the script (set/getvalue) flow
+    /// into later commands.
+    private func interpolated(_ command: Command) -> Command {
+        switch command {
+        case .launch(let appName): return .launch(appName: interp(appName))
+        case .find(let selector): return .find(selector: interp(selector))
+        case .waitFor(let selector, let timeout): return .waitFor(selector: interp(selector), timeout: timeout)
+        case .useWindow(let title, let saveAs): return .useWindow(titleContains: title.map(interp), saveAs: saveAs)
+        case .screenshot(let path): return .screenshot(path: path.map(interp))
+        case .log(let message): return .log(message: interp(message))
+        case .setVariable(let name, let value): return .setVariable(name: name, value: interp(value))
+        case .assert(let assertion):
+            switch assertion {
+            case .exists(let selector): return .assert(.exists(interp(selector)))
+            case .notExists(let selector): return .assert(.notExists(interp(selector)))
+            case .value(let expected): return .assert(.value(interp(expected)))
+            case .enabled: return command
+            }
+        case .perform(let action):
+            switch action {
+            case .type(let text): return .perform(action: .type(interp(text)))
+            case .setValue(let value): return .perform(action: .setValue(interp(value)))
+            case .pressKey(let combo): return .perform(action: .pressKey(combo: interp(combo)))
+            case .selectMenuItem(let path): return .perform(action: .selectMenuItem(path: interp(path)))
+            case .openMenu(let name): return .perform(action: .openMenu(name: interp(name)))
+            default: return command
+            }
+        default:
+            return command
+        }
+    }
+
+    private func executeCommandCore(_ rawCommand: Command, index: Int = 0) -> CommandResult {
+        let command = interpolated(rawCommand)
         switch command {
         case .launch(let appName):
             return executeLaunch(appName)
@@ -143,8 +194,22 @@ public class DSLExecutor {
         case .waitFor(let selector, let timeout):
             return executeWaitFor(selector, timeout: timeout)
 
-        case .useWindow(let titleContains):
-            return executeUseWindow(titleContains)
+        case .useWindow(let titleContains, let saveAs):
+            return executeUseWindow(titleContains, saveAs: saveAs)
+
+        case .setVariable(let name, let value):
+            context.variables[name] = value
+            output("Set $\(name) = \(value)", level: .info)
+            return .success(value: value)
+
+        case .readValue(let variableName):
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            let value = buildElementInfo(element).value ?? ""
+            context.variables[variableName] = value
+            output("Stored element value into $\(variableName): \"\(value)\"", level: .info)
+            return .success(value: value)
 
         case .dumpTree(let maxDepth):
             return executeDumpTree(maxDepth: maxDepth)
@@ -497,16 +562,28 @@ public class DSLExecutor {
 
     // MARK: - Window Attachment
 
-    private func executeUseWindow(_ titleContains: String?) -> CommandResult {
+    private func executeUseWindow(_ titleContains: String?, saveAs: String? = nil) -> CommandResult {
         let window: AXUIElement?
-        if let query = titleContains {
+        let what: String
+
+        if let query = titleContains, query.hasPrefix("@") {
+            // Recall a previously saved window
+            let alias = String(query.dropFirst())
+            window = context.namedWindows[alias]
+            what = "saved window @\(alias)"
+            if window == nil {
+                let saved = context.namedWindows.keys.sorted().map { "@\($0)" }.joined(separator: ", ")
+                return .failure(error: "No saved window named @\(alias).\(saved.isEmpty ? "" : " Saved windows: \(saved).") Save one with 'usewindow <title> as \(alias)'.")
+            }
+        } else if let query = titleContains {
             window = findWindow(titleContains: query)
+            what = "window with title containing \"\(query)\""
         } else {
             window = getFrontmostAppFocusedWindow()
+            what = "frontmost window"
         }
 
         guard let win = window else {
-            let what = titleContains.map { "window with title containing \"\($0)\"" } ?? "frontmost window"
             return .failure(error: "Could not find \(what). Use 'getwindows' to list available windows.")
         }
 
@@ -515,7 +592,12 @@ public class DSLExecutor {
         context.foundElements = []
 
         let title = getAttribute(win, attribute: kAXTitleAttribute as CFString) as? String ?? "Untitled"
-        output("Now working with window: \"\(title)\"", level: .info)
+        if let alias = saveAs {
+            context.namedWindows[alias] = win
+            output("Now working with window: \"\(title)\" (saved as @\(alias))", level: .info)
+        } else {
+            output("Now working with window: \"\(title)\"", level: .info)
+        }
         return .success(value: title)
     }
 

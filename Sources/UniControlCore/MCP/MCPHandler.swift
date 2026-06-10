@@ -246,6 +246,10 @@ public class MCPHandler {
             return executeScript(arguments)
 
         // Session management
+        case "set_variable":
+            return executeSetVariable(arguments)
+        case "get_value":
+            return executeGetValue(arguments)
         case "reset_session":
             return executeResetSession()
 
@@ -496,7 +500,8 @@ public class MCPHandler {
 
     private func executeUseWindow(_ args: [String: JSONValue]) -> MCPToolCallResult {
         let title = args["title"]?.stringValue
-        let command = Command.useWindow(titleContains: title)
+        let saveAs = args["save_as"]?.stringValue
+        let command = Command.useWindow(titleContains: title, saveAs: saveAs)
         let result = executeCommand(command)
 
         switch result {
@@ -711,6 +716,32 @@ public class MCPHandler {
                 content: [.text(MCPTextContent(text: resultText))],
                 isError: true
             )
+        }
+    }
+
+    private func executeSetVariable(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let name = args["name"]?.stringValue, let value = args["value"]?.stringValue else {
+            return .error("Missing required parameters: name and value")
+        }
+        let result = executeCommand(.setVariable(name: name, value: value))
+        switch result {
+        case .success:
+            return .text("Set $\(name) = \(value)")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeGetValue(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let name = args["name"]?.stringValue else {
+            return .error("Missing required parameter: name")
+        }
+        let result = executeCommand(.readValue(variableName: name))
+        switch result {
+        case .success(let value):
+            return .text("Stored element value into $\(name): \"\((value as? String) ?? "")\"")
+        case .failure(let error):
+            return .error(error)
         }
     }
 

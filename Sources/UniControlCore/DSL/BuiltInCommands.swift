@@ -107,18 +107,50 @@ public enum BuiltInCommands {
     public static let useWindow = CommandDescriptor(
         verb: "usewindow",
         mcpName: "use_window",
-        syntax: "usewindow [title-substring]",
+        syntax: "usewindow [title|@alias] [as <alias>]",
         description: "Attach to an existing window",
-        detailedDescription: "Set the working window without launching anything. With no argument, attaches to the frontmost window. With a title substring, attaches to the first window (any app) whose title contains it (case-insensitive). Use get_windows to list candidates.",
+        detailedDescription: "Set the working window without launching anything. With no title, attaches to the frontmost window. With a title substring, attaches to the first window (any app) whose title contains it (case-insensitive). Pass save_as to remember the window under an alias, and '@alias' as the title to switch back to it later — useful for workflows spanning multiple windows. Use get_windows to list candidates.",
         category: .appControl,
         parameters: [
             ParameterDescriptor(
                 name: "title",
                 type: .string,
-                description: "Substring of the window title to attach to. Omit to use the frontmost window.",
+                description: "Substring of the window title to attach to, or '@alias' to recall a saved window. Omit to use the frontmost window.",
+                isRequired: false
+            ),
+            ParameterDescriptor(
+                name: "save_as",
+                type: .string,
+                description: "Alias to save this window under for later '@alias' recall",
                 isRequired: false
             )
         ]
+    )
+
+    public static let setVariable = CommandDescriptor(
+        verb: "set",
+        mcpName: "set_variable",
+        syntax: "set <name> = <value>",
+        description: "Set a script variable",
+        detailedDescription: "Store a value in a session variable. Reference it later as $name or ${name} in command arguments (type, setvalue, find, log, launch, presskey, menu paths, assert value). Mostly useful inside execute_script to carry values between commands.",
+        category: .session,
+        parameters: [
+            ParameterDescriptor(name: "name", type: .string, description: "Variable name (letters, digits, underscores)"),
+            ParameterDescriptor(name: "value", type: .string, description: "Value to store ($references are expanded at set time)")
+        ]
+    )
+
+    public static let getValue = CommandDescriptor(
+        verb: "getvalue",
+        mcpName: "get_value",
+        syntax: "getvalue <name>",
+        description: "Store the current element's value in a variable",
+        detailedDescription: "Read the current element's value attribute and store it in a session variable for later $name interpolation. Use find/wait_for first to select the element. Enables read-here-paste-there workflows inside one execute_script call.",
+        category: .session,
+        parameters: [
+            ParameterDescriptor(name: "name", type: .string, description: "Variable name to store the value into")
+        ],
+        requiresElement: true
     )
 
     public static let dumpTree = CommandDescriptor(
@@ -624,6 +656,8 @@ public enum BuiltInCommands {
         // Composite
         executeScript,
         // Session Management
+        setVariable,
+        getValue,
         resetSession,
         // Logging
         log,

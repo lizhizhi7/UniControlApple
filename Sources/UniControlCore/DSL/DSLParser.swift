@@ -115,8 +115,33 @@ public class DSLParser {
             return parseAssertion(Array(parts[1...])).map { .assert($0) }
 
         case "usewindow":
-            let title = parts.count >= 2 ? parts[1...].joined(separator: " ") : nil
-            return .success(.useWindow(titleContains: title))
+            // usewindow [title...] [as <alias>] | usewindow @alias
+            var titleParts = Array(parts[1...])
+            var saveAs: String? = nil
+            if titleParts.count >= 2, titleParts[titleParts.count - 2].lowercased() == "as" {
+                saveAs = titleParts.removeLast()
+                titleParts.removeLast()
+            }
+            let title = titleParts.isEmpty ? nil : titleParts.joined(separator: " ")
+            return .success(.useWindow(titleContains: title, saveAs: saveAs))
+
+        case "set":
+            // set <name> = <value...>
+            guard parts.count >= 4, parts[2] == "=" else {
+                return .failure(ParseFailure("'set' syntax is: set <name> = <value>"))
+            }
+            let name = parts[1]
+            guard name.first.map({ $0.isLetter || $0 == "_" }) == true,
+                  name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) else {
+                return .failure(ParseFailure("Variable name '\(name)' must start with a letter/underscore and contain only letters, digits, underscores"))
+            }
+            return .success(.setVariable(name: name, value: parts[3...].joined(separator: " ")))
+
+        case "getvalue":
+            guard parts.count >= 2 else {
+                return .failure(ParseFailure("'getvalue' requires a variable name (getvalue <name>) to store the current element's value"))
+            }
+            return .success(.readValue(variableName: parts[1]))
 
         case "dumptree":
             if parts.count >= 2 {

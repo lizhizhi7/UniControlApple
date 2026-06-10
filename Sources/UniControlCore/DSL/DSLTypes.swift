@@ -260,9 +260,11 @@ public enum Command {
     case perform(action: Action)
     case assert(Assertion)
     case waitFor(selector: ElementSelector, timeout: TimeInterval)
-    case useWindow(titleContains: String?)
+    case useWindow(titleContains: String?, saveAs: String? = nil)
     case dumpTree(maxDepth: Int)
     case screenshot(path: String?)
+    case setVariable(name: String, value: String)
+    case readValue(variableName: String)
     case reset
     case log(message: String)
     case mode(ExecutionMode)
@@ -315,11 +317,70 @@ public struct VisionElement {
     }
 }
 
+/// Substitute `$name` / `${name}` references with variable values.
+/// Unknown variables are left untouched so literal `$` text keeps working.
+public func interpolateVariables(_ input: String, variables: [String: Any]) -> String {
+    guard input.contains("$"), !variables.isEmpty else { return input }
+
+    var result = ""
+    var index = input.startIndex
+
+    func isNameChar(_ c: Character, first: Bool) -> Bool {
+        c.isLetter || c == "_" || (!first && c.isNumber)
+    }
+
+    while index < input.endIndex {
+        let char = input[index]
+        guard char == "$" else {
+            result.append(char)
+            index = input.index(after: index)
+            continue
+        }
+
+        let afterDollar = input.index(after: index)
+
+        // ${name}
+        if afterDollar < input.endIndex, input[afterDollar] == "{" {
+            if let close = input[afterDollar...].firstIndex(of: "}") {
+                let name = String(input[input.index(after: afterDollar)..<close])
+                if let value = variables[name] {
+                    result.append("\(value)")
+                    index = input.index(after: close)
+                    continue
+                }
+            }
+            result.append(char)
+            index = afterDollar
+            continue
+        }
+
+        // $name
+        var nameEnd = afterDollar
+        while nameEnd < input.endIndex, isNameChar(input[nameEnd], first: nameEnd == afterDollar) {
+            nameEnd = input.index(after: nameEnd)
+        }
+        if nameEnd > afterDollar {
+            let name = String(input[afterDollar..<nameEnd])
+            if let value = variables[name] {
+                result.append("\(value)")
+                index = nameEnd
+                continue
+            }
+        }
+
+        result.append(char)
+        index = afterDollar
+    }
+
+    return result
+}
+
 /// Context for executing commands
 public class ExecutionContext {
     public var currentWindow: AXUIElement?
     public var currentElement: AXUIElement?
     public var foundElements: [AXUIElement] = []
+    public var namedWindows: [String: AXUIElement] = [:]
     public var variables: [String: Any] = [:]
     public var mode: ExecutionMode = .continue  // Default to continue mode
     public var errorLog: [(commandIndex: Int, command: String, error: String)] = []
@@ -333,6 +394,7 @@ public class ExecutionContext {
         currentWindow = nil
         currentElement = nil
         foundElements = []
+        namedWindows = [:]
         variables = [:]
         mode = .continue
         errorLog = []

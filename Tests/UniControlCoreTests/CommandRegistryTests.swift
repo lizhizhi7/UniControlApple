@@ -78,6 +78,8 @@ final class CommandRegistryTests: XCTestCase {
             "screenshot": "screenshot",
             "assert": "assert exists Save",
             "reset": "reset",
+            "set": "set name = value",
+            "getvalue": "getvalue result",
             "log": "log hello",
             "mode": "mode strict",
             // "script" is the MCP-only execute_script wrapper; it is not a DSL line
