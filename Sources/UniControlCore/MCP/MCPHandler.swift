@@ -166,10 +166,14 @@ public class MCPHandler {
         // Application control
         case "launch_app":
             return executeLaunchApp(arguments)
+        case "use_window":
+            return executeUseWindow(arguments)
 
         // Element finding
         case "find_element":
             return executeFindElement(arguments)
+        case "wait_for":
+            return executeWaitFor(arguments)
 
         // Actions
         case "click":
@@ -180,6 +184,8 @@ public class MCPHandler {
             return executeSimpleAction(.rightClick)
         case "type_text":
             return executeTypeText(arguments)
+        case "set_value":
+            return executeSetValue(arguments)
         case "press_key":
             return executePressKey(arguments)
         case "scroll":
@@ -224,6 +230,10 @@ public class MCPHandler {
             return executeGetApps(arguments)
         case "get_element":
             return executeGetElement()
+        case "dump_tree":
+            return executeDumpTree(arguments)
+        case "assert":
+            return executeAssert(arguments)
 
         // Composite
         case "execute_script":
@@ -463,6 +473,99 @@ public class MCPHandler {
         }
     }
 
+    private func executeUseWindow(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        let title = args["title"]?.stringValue
+        let command = Command.useWindow(titleContains: title)
+        let result = executeCommand(command)
+
+        switch result {
+        case .success(let value):
+            let windowTitle = (value as? String) ?? "window"
+            return .text("Now working with window: \"\(windowTitle)\"")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeWaitFor(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        let selector: ElementSelector
+        if let title = args["title"]?.stringValue, let role = args["role"]?.stringValue {
+            selector = .byTitleAndRole(title: title, role: role)
+        } else if let title = args["title"]?.stringValue {
+            selector = .byTitle(title)
+        } else if let role = args["role"]?.stringValue {
+            selector = .byRole(role)
+        } else {
+            return .error("wait_for requires 'title' and/or 'role'")
+        }
+
+        let timeout = args["timeout"]?.doubleValue ?? 5.0
+        let command = Command.waitFor(selector: selector, timeout: timeout)
+        let result = executeCommand(command)
+
+        switch result {
+        case .success(let value):
+            if let elementInfo = value as? ElementInfo {
+                return .json(elementInfo)
+            }
+            return .text("Element appeared and is now selected")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeSetValue(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let value = args["value"]?.stringValue else {
+            return .error("Missing required parameter: value")
+        }
+
+        let command = Command.perform(action: .setValue(value))
+        let result = executeCommand(command)
+
+        switch result {
+        case .success:
+            return .text("Value set successfully")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeDumpTree(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        let depth = args["depth"]?.intValue ?? 4
+        let command = Command.dumpTree(maxDepth: depth)
+        let result = executeCommand(command)
+
+        switch result {
+        case .success(let value):
+            if let tree = value as? String {
+                return .text(tree)
+            }
+            return .text("Tree dumped")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeAssert(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let condition = args["condition"]?.stringValue else {
+            return .error("Missing required parameter: condition")
+        }
+
+        let parts = condition.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        switch DSLParser.parseAssertion(parts) {
+        case .success(let assertion):
+            let result = executeCommand(.assert(assertion))
+            switch result {
+            case .success:
+                return .text("Assertion passed: \(condition)")
+            case .failure(let error):
+                return .error(error)
+            }
+        case .failure(let failure):
+            return .error(failure.message)
+        }
+    }
+
     private func executeScript(_ args: [String: JSONValue]) -> MCPToolCallResult {
         guard let script = args["script"]?.stringValue else {
             return .error("Missing required parameter: script")
@@ -481,8 +584,14 @@ public class MCPHandler {
         }
 
         // Parse and execute script
-        let commands = DSLParser.parse(script)
+        let outcome = DSLParser.parseWithDiagnostics(script)
 
+        if outcome.hasErrors {
+            let errorList = outcome.errors.map { "  \($0)" }.joined(separator: "\n")
+            return .error("Script has \(outcome.errors.count) parse error(s) — nothing was executed:\n\(errorList)")
+        }
+
+        let commands = outcome.commands
         if commands.isEmpty {
             return .error("No valid commands found in script")
         }

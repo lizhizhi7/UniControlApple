@@ -74,6 +74,71 @@ public enum BuiltInCommands {
         requiresWindow: true
     )
 
+    public static let waitFor = CommandDescriptor(
+        verb: "waitfor",
+        mcpName: "wait_for",
+        syntax: "waitfor <selector> [timeout: <seconds>]",
+        description: "Wait until an element appears",
+        detailedDescription: "Poll the current window until an element matching the selector appears, or the timeout (default 5s) elapses. On success the element becomes the current element, like find_element. Prefer this over fixed waits — it is faster and more reliable.",
+        category: .elementFinding,
+        parameters: [
+            ParameterDescriptor(
+                name: "title",
+                type: .string,
+                description: "Text/title to search for in the element",
+                isRequired: false
+            ),
+            ParameterDescriptor(
+                name: "role",
+                type: .string,
+                description: "Accessibility role to filter by (e.g., 'AXButton', 'AXTextField')",
+                isRequired: false
+            ),
+            ParameterDescriptor(
+                name: "timeout",
+                type: .number,
+                description: "Maximum seconds to wait (default 5)",
+                isRequired: false
+            )
+        ],
+        requiresWindow: true
+    )
+
+    public static let useWindow = CommandDescriptor(
+        verb: "usewindow",
+        mcpName: "use_window",
+        syntax: "usewindow [title-substring]",
+        description: "Attach to an existing window",
+        detailedDescription: "Set the working window without launching anything. With no argument, attaches to the frontmost window. With a title substring, attaches to the first window (any app) whose title contains it (case-insensitive). Use get_windows to list candidates.",
+        category: .appControl,
+        parameters: [
+            ParameterDescriptor(
+                name: "title",
+                type: .string,
+                description: "Substring of the window title to attach to. Omit to use the frontmost window.",
+                isRequired: false
+            )
+        ]
+    )
+
+    public static let dumpTree = CommandDescriptor(
+        verb: "dumptree",
+        mcpName: "dump_tree",
+        syntax: "dumptree [depth]",
+        description: "Dump the UI element tree",
+        detailedDescription: "Render the UI element tree of the current window (or current element, if one is selected) as indented text showing role, title, value, and disabled state. Use this to discover what elements exist before using find_element. Output is capped to stay digestible.",
+        category: .stateQueries,
+        parameters: [
+            ParameterDescriptor(
+                name: "depth",
+                type: .integer,
+                description: "Maximum tree depth to descend (default 4)",
+                isRequired: false
+            )
+        ],
+        requiresWindow: true
+    )
+
     // MARK: - Basic Actions
 
     public static let click = CommandDescriptor.simple(
@@ -117,6 +182,40 @@ public enum BuiltInCommands {
                 description: "The text to type"
             )
         ]
+    )
+
+    public static let setValue = CommandDescriptor(
+        verb: "setvalue",
+        mcpName: "set_value",
+        syntax: "setvalue <value>",
+        description: "Set the current element's value",
+        detailedDescription: "Set the value attribute of the currently selected element directly (no keyboard simulation). Works on text fields, sliders, and other value-bearing elements. Use find_element first.",
+        category: .basicActions,
+        parameters: [
+            ParameterDescriptor(
+                name: "value",
+                type: .string,
+                description: "The value to set"
+            )
+        ],
+        requiresElement: true
+    )
+
+    public static let assertCondition = CommandDescriptor(
+        verb: "assert",
+        mcpName: "assert",
+        syntax: "assert <exists|missing|enabled|disabled|value> [args]",
+        description: "Verify a condition",
+        detailedDescription: "Verify a condition and fail the command if it does not hold. Conditions: 'exists <selector>' (an element matching the selector exists), 'missing <selector>' (no match exists), 'enabled' / 'disabled' (current element state), 'value <text>' (current element's value equals text). Use after actions to confirm they had the intended effect.",
+        category: .stateQueries,
+        parameters: [
+            ParameterDescriptor(
+                name: "condition",
+                type: .string,
+                description: "Condition expression, e.g. 'exists Save role: AXButton', 'missing Error', 'enabled', 'value 42'"
+            )
+        ],
+        requiresWindow: true
     )
 
     public static let wait = CommandDescriptor(
@@ -326,11 +425,14 @@ public enum BuiltInCommands {
 
             DSL Commands:
             - launch <app-name>: Launch an application
+            - usewindow [title]: Attach to an existing window (frontmost if no title)
             - find <title> [role: <role>]: Find UI element
+            - waitfor <selector> [timeout: <sec>]: Wait until an element appears (prefer over fixed waits)
             - click: Click current element
             - doubleclick: Double-click current element
             - rightclick: Right-click current element
             - type <text>: Type text (into element or keyboard simulation)
+            - setvalue <value>: Set current element's value directly
             - wait <seconds>: Wait for duration
             - presskey <combo>: Press key combination (e.g., cmd+c)
             - scroll <direction>: Scroll (up/down/left/right)
@@ -340,10 +442,13 @@ public enum BuiltInCommands {
             - selectmenuitem <path>: Select menu item (e.g., File > Save)
             - openmenu <name>: Open a menu
             - increment / decrement: Change stepper/slider value
+            - assert <exists|missing|enabled|disabled|value> [args]: Verify a condition
             - getsystem: Get system info
             - getwindows: Get all windows (with frontmost/working markers)
             - getapps: Get all apps (with frontmost/working markers)
             - getelement: Get current element info
+            - dumptree [depth]: Dump UI element tree for discovery
+            - reset: Clear session context
             - log <message>: Log a message
 
             Example script:
@@ -429,13 +534,16 @@ public enum BuiltInCommands {
     public static let all: [CommandDescriptor] = [
         // Application Control
         launch,
+        useWindow,
         // Element Finding
         find,
+        waitFor,
         // Basic Actions
         click,
         doubleClick,
         rightClick,
         type,
+        setValue,
         wait,
         scroll,
         pressKey,
@@ -458,6 +566,8 @@ public enum BuiltInCommands {
         getWindows,
         getApps,
         getElement,
+        dumpTree,
+        assertCondition,
         // Composite
         executeScript,
         // Session Management

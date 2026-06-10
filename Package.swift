@@ -35,6 +35,11 @@ let package = Package(
             name: "UniControlCLI",
             dependencies: ["UniControlCore"],
             path: "Sources/UniControlCLI"
+        ),
+        .testTarget(
+            name: "UniControlCoreTests",
+            dependencies: ["UniControlCore"],
+            path: "Tests/UniControlCoreTests"
         )
     ]
 )

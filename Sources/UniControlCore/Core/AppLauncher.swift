@@ -138,3 +138,23 @@ public func launchAppAndGetFocusedWindow(appName: String, completion: @escaping 
         getFocusedWindowWithRetry(completion: completion)
     }
 }
+
+/// Find a window whose title contains the given substring (case-insensitive),
+/// searching the windows of all regular running applications.
+public func findWindow(titleContains query: String) -> AXUIElement? {
+    let lowered = query.lowercased()
+
+    for app in NSWorkspace.shared.runningApplications where app.activationPolicy == .regular {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        guard let windows = getAttribute(appElement, attribute: kAXWindowsAttribute as CFString) as? [AXUIElement] else {
+            continue
+        }
+        for window in windows {
+            if let title = getAttribute(window, attribute: kAXTitleAttribute as CFString) as? String,
+               title.lowercased().contains(lowered) {
+                return window
+            }
+        }
+    }
+    return nil
+}

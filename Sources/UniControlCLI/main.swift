@@ -74,13 +74,15 @@ func printUsage() {
       Communicates via stdin/stdout using JSON-RPC 2.0 protocol.
 
       Available tools:
-        - launch_app: Launch applications
-        - find_element: Find UI elements
+        - launch_app, use_window: Launch apps or attach to open windows
+        - find_element, wait_for: Find UI elements (wait_for polls until present)
         - click, double_click, right_click: Click actions
-        - type_text: Type into text fields
+        - type_text, set_value: Type into or set value of text fields
         - press_key: Keyboard shortcuts
         - scroll, wait: Navigation and timing
         - get_system_info, get_windows, get_apps, get_element: State queries
+        - dump_tree: Dump the UI element tree for discovery
+        - assert: Verify conditions (exists/missing/enabled/disabled/value)
         - execute_script: Run multi-command DSL scripts
 
       Claude Desktop configuration (~/.config/claude/claude_desktop_config.json):
@@ -125,8 +127,8 @@ func printUsage() {
 
     Documentation:
       CLAUDE.md                        - Project overview and architecture
-      DEBUG_MODE_GUIDE.md              - Debug mode usage guide
-      ACCESSIBILITY_PERMISSIONS_GUIDE.md - Permission setup guide
+      docs/TROUBLESHOOTING.md           - Troubleshooting guide
+      docs/ACCESSIBILITY_PERMISSIONS.md - Permission setup guide
       examples/TEST_README.md          - Testing guide
     """)
 }
@@ -149,7 +151,17 @@ func executeScriptFromFile(_ filePath: String, verbose: Bool) {
         print("Loading script from: \(filePath)\n")
     }
 
-    let commands = DSLParser.parse(scriptContent)
+    let outcome = DSLParser.parseWithDiagnostics(scriptContent)
+
+    if outcome.hasErrors {
+        print("❌ Script has \(outcome.errors.count) parse error(s) — nothing was executed:")
+        for error in outcome.errors {
+            print("   \(error)")
+        }
+        exit(1)
+    }
+
+    let commands = outcome.commands
     let executor = DSLExecutor()
 
     if executor.execute(commands, verbose: verbose) {
@@ -171,16 +183,21 @@ func printInteractiveHelp() {
 
     Available Commands:
       launch <app>              - Launch an application
+      usewindow [title]         - Attach to an open window (frontmost if no title)
       find <element>            - Find UI element by title
       find <title> role: <role> - Find element by title and role
       find role: <role>         - Find elements by role
+      waitfor <sel> [timeout: n] - Wait until an element appears
       click                     - Click current element
       doubleclick               - Double-click current element
       rightclick                - Right-click current element
       type <text>               - Type text into current element
+      setvalue <value>          - Set current element's value directly
       wait <seconds>            - Wait for specified duration
+      assert <condition>        - Verify exists/missing/enabled/disabled/value
+      dumptree [depth]          - Dump UI element tree for discovery
       log <message>             - Print a message
-      press <key-combo>         - Press key combination (e.g., cmd+c)
+      presskey <key-combo>      - Press key combination (e.g., cmd+c)
 
     REPL Commands:
       help                      - Show this help
@@ -268,8 +285,14 @@ func runInteractiveMode(verbose: Bool) {
         }
 
         // Parse and execute as DSL command
-        let commands = DSLParser.parse(input)
+        let outcome = DSLParser.parseWithDiagnostics(input)
 
+        if let error = outcome.errors.first {
+            print("\(error.message). Type 'help' for available commands.\n")
+            continue
+        }
+
+        let commands = outcome.commands
         if commands.isEmpty {
             print("Unknown command. Type 'help' for available commands.\n")
             continue
@@ -358,7 +381,7 @@ if mcpMode {
     if !checkAccessibilityPermission() {
         print("⚠️  Warning: Accessibility permission not granted.")
         print("    Script execution will fail until permissions are granted.")
-        print("    See ACCESSIBILITY_PERMISSIONS_GUIDE.md for instructions.")
+        print("    See docs/ACCESSIBILITY_PERMISSIONS.md for instructions.")
         print("")
     }
     // Start HTTP/WebSocket server
@@ -382,7 +405,7 @@ if mcpMode {
         print("2. Add your Terminal app (Terminal, iTerm, Warp, etc.)")
         print("3. Toggle it ON")
         print("4. Restart your terminal")
-        print("\nSee ACCESSIBILITY_PERMISSIONS_GUIDE.md for detailed instructions.")
+        print("\nSee docs/ACCESSIBILITY_PERMISSIONS.md for detailed instructions.")
         _ = requestAccessibilityPermission()
         exit(1)
     }
@@ -397,7 +420,7 @@ if mcpMode {
         print("2. Add your Terminal app (Terminal, iTerm, Warp, etc.)")
         print("3. Toggle it ON")
         print("4. Restart your terminal")
-        print("\nSee ACCESSIBILITY_PERMISSIONS_GUIDE.md for detailed instructions.")
+        print("\nSee docs/ACCESSIBILITY_PERMISSIONS.md for detailed instructions.")
         _ = requestAccessibilityPermission()
         exit(1)
     }

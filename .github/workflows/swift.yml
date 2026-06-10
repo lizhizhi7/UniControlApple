@@ -27,4 +27,3 @@ jobs:
 
     - name: Run tests
       run: swift test -v
-      continue-on-error: true  # Remove this line once tests are added

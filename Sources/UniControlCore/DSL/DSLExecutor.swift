@@ -137,7 +137,21 @@ public class DSLExecutor {
             output(message, level: .info)
             return .success(value: nil)
 
-        case .assert(_):
+        case .assert(let assertion):
+            return executeAssert(assertion)
+
+        case .waitFor(let selector, let timeout):
+            return executeWaitFor(selector, timeout: timeout)
+
+        case .useWindow(let titleContains):
+            return executeUseWindow(titleContains)
+
+        case .dumpTree(let maxDepth):
+            return executeDumpTree(maxDepth: maxDepth)
+
+        case .reset:
+            context.reset()
+            output("Session context reset", level: .info)
             return .success(value: nil)
 
         case .mode(let executionMode):
@@ -334,6 +348,167 @@ public class DSLExecutor {
             context.currentElement = nil
             return .failure(error: "Could not find elements matching pattern: \(pattern)")
         }
+    }
+
+    // MARK: - Selector Resolution
+
+    /// Resolve a selector to its matching elements without vision fallback or
+    /// suggestion generation. Used by waitfor/assert where repeated polling or
+    /// pure verification makes those extras unwanted.
+    private func resolveSelector(_ selector: ElementSelector, in window: AXUIElement) -> [AXUIElement] {
+        switch selector {
+        case .byTitle(let title):
+            return findElement(in: window, title: title).map { [$0] } ?? []
+
+        case .byRole(let role):
+            return findElements(in: window, role: role)
+
+        case .byTitleAndRole(let title, let role):
+            return findElement(in: window, title: title, role: role).map { [$0] } ?? []
+
+        case .byIndex(let index):
+            if index >= 0 && index < context.foundElements.count {
+                return [context.foundElements[index]]
+            }
+            return []
+
+        case .all:
+            return findElements(in: window)
+
+        case .byState(let role, let state):
+            let stateLower = state.lowercased()
+            return findElements(in: window, role: role).filter { element in
+                let enabled = getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool
+                let focused = getAttribute(element, attribute: kAXFocusedAttribute as CFString) as? Bool
+                switch stateLower {
+                case "enabled": return enabled == true
+                case "disabled": return enabled == false
+                case "focused": return focused == true
+                default: return false
+                }
+            }
+
+        case .byRegex(let pattern):
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+                return []
+            }
+            return findElements(in: window).filter { element in
+                let texts = [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute].compactMap {
+                    getAttribute(element, attribute: $0 as CFString) as? String
+                }
+                return texts.contains { text in
+                    regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) != nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Assertions
+
+    private func executeAssert(_ assertion: Assertion) -> CommandResult {
+        switch assertion {
+        case .exists(let selector):
+            guard let window = context.currentWindow else {
+                return .failure(error: "No active window. Launch an app or use 'usewindow' first.")
+            }
+            if resolveSelector(selector, in: window).isEmpty {
+                return .failure(error: "Assertion failed: no element matching \(selector)")
+            }
+            output("Assertion passed: element matching \(selector) exists", level: .success)
+            return .success(value: nil)
+
+        case .notExists(let selector):
+            guard let window = context.currentWindow else {
+                return .failure(error: "No active window. Launch an app or use 'usewindow' first.")
+            }
+            let count = resolveSelector(selector, in: window).count
+            if count > 0 {
+                return .failure(error: "Assertion failed: found \(count) element(s) matching \(selector), expected none")
+            }
+            output("Assertion passed: no element matching \(selector)", level: .success)
+            return .success(value: nil)
+
+        case .enabled(let expected):
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            let enabled = (getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool) ?? false
+            if enabled != expected {
+                return .failure(error: "Assertion failed: element is \(enabled ? "enabled" : "disabled"), expected \(expected ? "enabled" : "disabled")")
+            }
+            output("Assertion passed: element is \(expected ? "enabled" : "disabled")", level: .success)
+            return .success(value: nil)
+
+        case .value(let expected):
+            guard let element = context.currentElement else {
+                return .failure(error: "No element selected. Use 'find' first.")
+            }
+            let actual = buildElementInfo(element).value ?? ""
+            if actual != expected {
+                return .failure(error: "Assertion failed: element value is \"\(actual)\", expected \"\(expected)\"")
+            }
+            output("Assertion passed: element value is \"\(expected)\"", level: .success)
+            return .success(value: nil)
+        }
+    }
+
+    // MARK: - Wait For
+
+    private func executeWaitFor(_ selector: ElementSelector, timeout: TimeInterval) -> CommandResult {
+        guard let window = context.currentWindow else {
+            return .failure(error: "No active window. Launch an app or use 'usewindow' first.")
+        }
+
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            let matches = resolveSelector(selector, in: window)
+            if let first = matches.first {
+                context.currentElement = first
+                context.foundElements = matches
+                return .success(value: buildElementInfo(first))
+            }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date() < deadline
+
+        context.currentElement = nil
+        return .failure(error: "Timed out after \(timeout)s waiting for element matching \(selector)")
+    }
+
+    // MARK: - Window Attachment
+
+    private func executeUseWindow(_ titleContains: String?) -> CommandResult {
+        let window: AXUIElement?
+        if let query = titleContains {
+            window = findWindow(titleContains: query)
+        } else {
+            window = getFrontmostAppFocusedWindow()
+        }
+
+        guard let win = window else {
+            let what = titleContains.map { "window with title containing \"\($0)\"" } ?? "frontmost window"
+            return .failure(error: "Could not find \(what). Use 'getwindows' to list available windows.")
+        }
+
+        context.currentWindow = win
+        context.currentElement = nil
+        context.foundElements = []
+
+        let title = getAttribute(win, attribute: kAXTitleAttribute as CFString) as? String ?? "Untitled"
+        output("Now working with window: \"\(title)\"", level: .info)
+        return .success(value: title)
+    }
+
+    // MARK: - Tree Dump
+
+    private func executeDumpTree(maxDepth: Int) -> CommandResult {
+        // Dump from the selected element if there is one, else the whole window
+        guard let root = context.currentElement ?? context.currentWindow else {
+            return .failure(error: "No window or element selected. Launch an app or use 'usewindow' first.")
+        }
+
+        let tree = dumpElementTree(root, maxDepth: maxDepth)
+        output(tree, level: .info)
+        return .success(value: tree)
     }
 
     private func executeAction(_ action: Action) -> CommandResult {

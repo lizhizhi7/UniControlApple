@@ -7,6 +7,7 @@
 
 import SwiftUI
 import HighlightedTextEditor
+import UniControlCore
 
 /// DSL Text Editor with syntax highlighting and autocomplete
 struct DSLTextEditor: View {
@@ -169,6 +170,13 @@ struct DSLTextEditor: View {
 // MARK: - DSL Syntax Highlighting Rules
 
 struct DSLHighlightRules {
+    /// Alternation of all registered command verbs and aliases, longest first
+    static let commandVerbPattern: String = {
+        BuiltInCommands.registerAll()
+        let verbs = CommandRegistry.shared.allVerbs.sorted { $0.count > $1.count }
+        return "^\\s*(" + verbs.joined(separator: "|") + ")\\b"
+    }()
+
     static let rules: [HighlightRule] = [
         // Comments (# or //)
         HighlightRule(
@@ -177,9 +185,9 @@ struct DSLHighlightRules {
                 TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemGreen }
             ]
         ),
-        // Commands (launch, find, click, type, wait, log, etc.)
+        // Commands — generated from the CommandRegistry so highlighting never drifts
         HighlightRule(
-            pattern: try! NSRegularExpression(pattern: "^\\s*(launch|find|click|type|wait|log|getsystem|getwindows|getwindow|getapps|getapp|getelement|press|scroll|drag|hover|focus|resize|move|close|minimize|maximize)\\b", options: [.anchorsMatchLines, .caseInsensitive]),
+            pattern: try! NSRegularExpression(pattern: commandVerbPattern, options: [.anchorsMatchLines, .caseInsensitive]),
             formattingRules: [
                 TextFormattingRule(key: .foregroundColor) { _, _ in NSColor.systemBlue },
                 TextFormattingRule(key: .font) { _, _ in NSFont.monospacedSystemFont(ofSize: 12, weight: .bold) }

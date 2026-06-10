@@ -202,6 +202,20 @@ public enum ElementSelector {
     case byRegex(pattern: String)
 }
 
+extension ElementSelector: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .byTitle(let title): return "title \"\(title)\""
+        case .byRole(let role): return "role \(role)"
+        case .byTitleAndRole(let title, let role): return "title \"\(title)\" role \(role)"
+        case .byIndex(let index): return "index \(index)"
+        case .all: return "all elements"
+        case .byState(let role, let state): return "role \(role) state \(state)"
+        case .byRegex(let pattern): return "pattern \(pattern)"
+        }
+    }
+}
+
 /// Represents an action to perform on an element
 public enum Action {
     case click
@@ -223,12 +237,24 @@ public enum Action {
     case collapse
 }
 
+/// A verifiable condition for the `assert` command
+public enum Assertion {
+    case exists(ElementSelector)        // an element matching the selector exists
+    case notExists(ElementSelector)     // no element matching the selector exists
+    case enabled(Bool)                  // current element is enabled (true) / disabled (false)
+    case value(String)                  // current element's value equals the given string
+}
+
 /// Represents a command in the DSL
 public enum Command {
     case launch(appName: String)
     case find(selector: ElementSelector)
     case perform(action: Action)
-    case assert(condition: String)
+    case assert(Assertion)
+    case waitFor(selector: ElementSelector, timeout: TimeInterval)
+    case useWindow(titleContains: String?)
+    case dumpTree(maxDepth: Int)
+    case reset
     case log(message: String)
     case mode(ExecutionMode)
     case custom(ExtensionCommand)

@@ -289,3 +289,69 @@ public func buildElementInfo(_ element: AXUIElement) -> ElementInfo {
         childrenCount: childrenCount
     )
 }
+
+/// Render the element tree under `root` as indented text for discovery/debugging.
+/// Each line shows role, title/description, value, and disabled/actions hints.
+/// Output is capped at `maxLines` to keep results digestible.
+public func dumpElementTree(_ root: AXUIElement, maxDepth: Int, maxLines: Int = 400) -> String {
+    var lines: [String] = []
+    var truncated = false
+
+    func describe(_ element: AXUIElement) -> String {
+        let role = getAttribute(element, attribute: kAXRoleAttribute as CFString) as? String ?? "AXUnknown"
+        var text = role
+
+        if let title = getAttribute(element, attribute: kAXTitleAttribute as CFString) as? String, !title.isEmpty {
+            text += " \"\(title)\""
+        } else if let description = getAttribute(element, attribute: kAXDescriptionAttribute as CFString) as? String, !description.isEmpty {
+            text += " \"\(description)\""
+        }
+
+        if let value = getAttribute(element, attribute: kAXValueAttribute as CFString) {
+            let valueStr = (value as? String) ?? (value as? NSNumber)?.stringValue
+            if let valueStr = valueStr, !valueStr.isEmpty {
+                let shortValue = valueStr.count > 40 ? String(valueStr.prefix(37)) + "..." : valueStr
+                text += " value=\"\(shortValue)\""
+            }
+        }
+
+        if let enabled = getAttribute(element, attribute: kAXEnabledAttribute as CFString) as? Bool, !enabled {
+            text += " [disabled]"
+        }
+
+        return text
+    }
+
+    func walk(_ element: AXUIElement, depth: Int) {
+        if lines.count >= maxLines {
+            truncated = true
+            return
+        }
+
+        let indent = String(repeating: "  ", count: depth)
+        lines.append(indent + describe(element))
+
+        guard depth < maxDepth else {
+            if let children = getAttribute(element, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement],
+               !children.isEmpty {
+                lines.append(indent + "  ... (\(children.count) children below depth limit)")
+            }
+            return
+        }
+
+        if let children = getAttribute(element, attribute: kAXChildrenAttribute as CFString) as? [AXUIElement] {
+            for child in children {
+                walk(child, depth: depth + 1)
+                if truncated { return }
+            }
+        }
+    }
+
+    walk(root, depth: 0)
+
+    if truncated {
+        lines.append("... (truncated at \(maxLines) lines; use a smaller depth or find with a selector)")
+    }
+
+    return lines.joined(separator: "\n")
+}

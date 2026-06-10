@@ -253,7 +253,24 @@ public final class UniControlServer: @unchecked Sendable {
         // Notify delegate of execution start
         delegate?.serverDidStartExecution(self, executionId: executionId, script: request.script, mode: request.mode)
 
-        let commands = DSLParser.parse(request.script)
+        let outcome = DSLParser.parseWithDiagnostics(request.script)
+
+        if outcome.hasErrors {
+            for error in outcome.errors {
+                capture.log("Parse error: \(error)", level: .error)
+            }
+            let response = ExecuteResponse(
+                success: false,
+                commandsExecuted: 0,
+                commandsFailed: outcome.errors.count,
+                results: [],
+                executionTime: 0
+            )
+            delegate?.serverDidCompleteExecution(self, executionId: executionId, response: response)
+            return response
+        }
+
+        let commands = outcome.commands
         let executor = DSLExecutor()
         executor.context.outputCapture = capture
 
@@ -381,7 +398,11 @@ public final class UniControlServer: @unchecked Sendable {
                 executor.context.outputCapture = capture
 
                 // Parse and execute commands
-                let commands = DSLParser.parse(executeCmd.script)
+                let wsOutcome = DSLParser.parseWithDiagnostics(executeCmd.script)
+                for error in wsOutcome.errors {
+                    capture.log("Parse error: \(error)", level: .error)
+                }
+                let commands = wsOutcome.hasErrors ? [] : wsOutcome.commands
 
                 // Set execution mode if specified
                 if let mode = executeCmd.mode {
@@ -398,7 +419,7 @@ public final class UniControlServer: @unchecked Sendable {
                 }
 
                 let startTime = Date()
-                let success = executor.execute(commands, verbose: verboseLogging)
+                let success = wsOutcome.hasErrors ? false : executor.execute(commands, verbose: verboseLogging)
                 let executionTime = Date().timeIntervalSince(startTime)
 
                 // Get results from the capture
