@@ -316,11 +316,26 @@ public class MCPHandler {
         let result = executeCommand(command)
 
         switch result {
-        case .success:
-            return .text("Action completed successfully")
+        case .success(let value):
+            return successWithElementState(value, message: "Action completed successfully")
         case .failure(let error):
             return .error(error)
         }
+    }
+
+    /// Build a success response that includes the element's post-action state
+    /// when available, so the model can verify the effect without a follow-up
+    /// get_element call.
+    private func successWithElementState(_ value: Any?, message: String) -> MCPToolCallResult {
+        guard let info = value as? ElementInfo else {
+            return .text(message)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        if let data = try? encoder.encode(info), let json = String(data: data, encoding: .utf8) {
+            return .text("\(message). Element state after action:\n\(json)")
+        }
+        return .text(message)
     }
 
     private func executeTypeText(_ args: [String: JSONValue]) -> MCPToolCallResult {
@@ -332,8 +347,8 @@ public class MCPHandler {
         let result = executeCommand(command)
 
         switch result {
-        case .success:
-            return .text("Typed text successfully")
+        case .success(let value):
+            return successWithElementState(value, message: "Typed text successfully")
         case .failure(let error):
             return .error(error)
         }
@@ -529,8 +544,8 @@ public class MCPHandler {
         let result = executeCommand(command)
 
         switch result {
-        case .success:
-            return .text("Value set successfully")
+        case .success(let resultValue):
+            return successWithElementState(resultValue, message: "Value set successfully")
         case .failure(let error):
             return .error(error)
         }

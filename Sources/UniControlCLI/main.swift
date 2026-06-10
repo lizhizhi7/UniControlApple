@@ -26,6 +26,8 @@ func printUsage() {
     Options:
       --debug, -d       Enable debug/verbose output (default: on)
       --quiet, -q       Disable verbose output
+      --json            Emit a machine-readable JSON result document as the
+                        last line of stdout (script mode only)
       --interactive, -i Start interactive REPL mode
       --serve [port]    Start HTTP/WebSocket server (default port: 8080)
       --mcp             Start MCP server (Model Context Protocol for Claude Desktop)
@@ -142,29 +144,72 @@ func printVersion() {
     print("https://github.com/yourusername/UniControl")
 }
 
+/// Structured result document for --json mode
+struct ScriptRunOutput: Codable {
+    let success: Bool
+    let parseErrors: [ParseError]
+    let commandsExecuted: Int
+    let commandsFailed: Int
+    let results: [CommandExecutionResult]
+}
+
+/// Print the JSON result document. Core code may print informational lines
+/// directly to stdout, so the contract is: the LAST line of stdout is the
+/// compact JSON document.
+func printJSONOutput(_ output: ScriptRunOutput) {
+    let encoder = JSONEncoder()
+    if let data = try? encoder.encode(output), let json = String(data: data, encoding: .utf8) {
+        print(json)
+    } else {
+        print(#"{"success":false,"parseErrors":[],"commandsExecuted":0,"commandsFailed":1,"results":[]}"#)
+    }
+}
+
 /// Load and execute DSL script from file
-func executeScriptFromFile(_ filePath: String, verbose: Bool) {
+func executeScriptFromFile(_ filePath: String, verbose: Bool, jsonOutput: Bool = false) {
     guard let scriptContent = try? String(contentsOfFile: filePath) else {
-        print("❌ Error: Could not read file: \(filePath)")
+        if jsonOutput {
+            printJSONOutput(ScriptRunOutput(success: false, parseErrors: [], commandsExecuted: 0, commandsFailed: 1, results: []))
+        } else {
+            print("❌ Error: Could not read file: \(filePath)")
+        }
         exit(1)
     }
 
-    if verbose {
+    if verbose && !jsonOutput {
         print("Loading script from: \(filePath)\n")
     }
 
     let outcome = DSLParser.parseWithDiagnostics(scriptContent)
 
     if outcome.hasErrors {
-        print("❌ Script has \(outcome.errors.count) parse error(s) — nothing was executed:")
-        for error in outcome.errors {
-            print("   \(error)")
+        if jsonOutput {
+            printJSONOutput(ScriptRunOutput(success: false, parseErrors: outcome.errors, commandsExecuted: 0, commandsFailed: outcome.errors.count, results: []))
+        } else {
+            print("❌ Script has \(outcome.errors.count) parse error(s) — nothing was executed:")
+            for error in outcome.errors {
+                print("   \(error)")
+            }
         }
         exit(1)
     }
 
     let commands = outcome.commands
     let executor = DSLExecutor()
+
+    if jsonOutput {
+        let capture = ServerOutputCapture()
+        executor.context.outputCapture = capture
+        let success = executor.execute(commands, verbose: false)
+        printJSONOutput(ScriptRunOutput(
+            success: success,
+            parseErrors: [],
+            commandsExecuted: capture.successCount,
+            commandsFailed: capture.failureCount,
+            results: capture.results
+        ))
+        exit(success ? 0 : 1)
+    }
 
     if executor.execute(commands, verbose: verbose) {
         if verbose {
@@ -319,6 +364,7 @@ var serverMode = false
 var serverPort = 8080
 var interactiveMode = false
 var mcpMode = false
+var jsonOutput = false
 
 var i = 1
 while i < CommandLine.arguments.count {
@@ -347,6 +393,8 @@ while i < CommandLine.arguments.count {
         interactiveMode = true
     case "--mcp":
         mcpMode = true
+    case "--json":
+        jsonOutput = true
     default:
         if arg.hasPrefix("-") {
             print("Unknown option: \(arg)")
@@ -429,7 +477,7 @@ if mcpMode {
         exit(1)
     }
     // Run script file
-    executeScriptFromFile(path, verbose: verboseMode)
+    executeScriptFromFile(path, verbose: verboseMode, jsonOutput: jsonOutput)
 } else {
     // No script provided - show help
     print("No script file specified.\n")

@@ -8,7 +8,7 @@
 import Foundation
 
 /// A parse error tied to a script line
-public struct ParseError: Sendable, CustomStringConvertible {
+public struct ParseError: Sendable, Codable, CustomStringConvertible {
     public let line: Int        // 1-based line number
     public let text: String     // the offending line
     public let message: String

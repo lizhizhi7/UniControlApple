@@ -579,7 +579,7 @@ public class DSLExecutor {
             }
             // Use retry logic directly (includes all methods and -25206 handling)
             if clickElementWithRetry(element, debug: true) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Click failed - tried all methods")
 
@@ -595,7 +595,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ doubleClickElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Double-click failed")
 
@@ -611,7 +611,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ rightClickElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Right-click failed")
 
@@ -693,7 +693,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ incrementElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Increment failed")
 
@@ -702,7 +702,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ decrementElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Decrement failed")
 
@@ -711,7 +711,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ focusElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Focus failed")
 
@@ -720,7 +720,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ checkElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Check failed")
 
@@ -729,7 +729,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ uncheckElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Uncheck failed")
 
@@ -738,7 +738,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ expandElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Expand failed")
 
@@ -747,7 +747,7 @@ public class DSLExecutor {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
             if withRetry({ collapseElement(element) }) {
-                return .success(value: nil)
+                return .success(value: buildElementInfo(element))
             }
             return .failure(error: "Collapse failed")
         }
@@ -760,7 +760,7 @@ public class DSLExecutor {
             return lastError == .success
         }
         if ok {
-            return .success(value: nil)
+            return .success(value: buildElementInfo(element))
         }
         return .failure(error: "Failed to type text: \(lastError.rawValue)")
     }
@@ -772,7 +772,7 @@ public class DSLExecutor {
             return lastError == .success
         }
         if ok {
-            return .success(value: nil)
+            return .success(value: buildElementInfo(element))
         }
         return .failure(error: "Failed to set value: \(lastError.rawValue)")
     }
