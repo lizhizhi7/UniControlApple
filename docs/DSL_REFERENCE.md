@@ -623,11 +623,11 @@ wait 1
 # Perform calculation: 7 + 5
 find 7
 click
-find +
+find Add role: AXButton
 click
 find 5
 click
-find =
+find Equals role: AXButton
 click
 
 log Calculation complete

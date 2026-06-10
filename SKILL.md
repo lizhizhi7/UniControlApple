@@ -263,17 +263,17 @@ type Formula here
 
 ```
 launch Calculator
-wait 1
-
-find 7
+waitfor 7 role: AXButton timeout: 10
 click
-find +
+waitfor Add role: AXButton
 click
-find 5
+waitfor 5 role: AXButton
 click
-find =
+waitfor Equals role: AXButton
 click
 ```
+
+Note: Calculator's operator buttons are titled `Add`/`Equals` in the accessibility tree, not `+`/`=`. When a find fails, run `dumptree` to see the real titles.
 
 ## Best Practices
 

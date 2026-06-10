@@ -31,23 +31,16 @@ swift build
 
 ## Testing Methods
 
-### Method 1: Built-in Examples (Easiest)
+### Method 1: Bundled Example Scripts (Easiest)
 
-UniControl includes 4 built-in examples. Edit `UniControl/main.swift` to choose which one to run:
+Run any of the ready-made scripts in `examples/`:
 
-```swift
-// Uncomment the example you want to run:
-// exampleOld()              // Legacy - launches Excel, finds buttons
-// exampleControlFlow()      // Opens Excel Developer tab, clicks Checkbox
-// exampleDSLSimple()        // Text-based DSL script
-exampleDSLComplex()          // Programmatic DSL (currently active)
-// exampleDSLFromFile()      // Load script from file
-```
-
-After editing, rebuild:
 ```bash
-swift build
-./UniControl  # or use the symlink
+.build/debug/UniControl examples/test-calculator.unictl
+.build/debug/UniControl examples/test-textedit.unictl
+# or the shortcuts:
+./run-tests.sh calculator
+./run-tests.sh textedit
 ```
 
 ### Method 2: Test with Script Files
@@ -75,9 +68,7 @@ EOF
 
 Run it:
 ```bash
-# First, change main.swift to use exampleDSLFromFile()
-# Then rebuild and run:
-./UniControl test-textedit.unictl
+.build/debug/UniControl test-textedit.unictl
 ```
 
 **Example 2: Test with Calculator**
@@ -95,7 +86,7 @@ find 5 role: AXButton
 click
 wait 0.5
 
-find + role: AXButton
+find Add role: AXButton
 click
 wait 0.5
 
@@ -126,95 +117,28 @@ log Test complete!
 EOF
 ```
 
-### Method 3: Interactive Testing
+### Method 3: Interactive Exploration
 
-Create a simple test script to explore what elements are available:
+Use the REPL plus `dumptree` to discover what elements an app exposes — element titles come from the accessibility tree and often differ from the visible label (e.g. Calculator's `+` button is titled `Add`):
 
-**Element Discovery Script**
-
-Edit `UniControl/Examples/DSLExamples.swift` and add this function:
-
-```swift
-public func exampleExplore() {
-    if !checkAccessibilityPermission() {
-        print("Accessibility permission required.")
-        _ = requestAccessibilityPermission()
-        exit(1)
-    }
-
-    print("=== Element Explorer ===\n")
-    print("Enter app name to explore: ", terminator: "")
-    guard let appName = readLine(), !appName.isEmpty else {
-        print("No app name provided")
-        exit(1)
-    }
-
-    launchAppAndGetFocusedWindow(appName: appName) { window in
-        guard let win = window else {
-            print("Could not get window")
-            exit(1)
-        }
-
-        print("\n=== Exploring \(appName) ===\n")
-
-        // Find all buttons
-        print("🔘 Buttons:")
-        let buttons = findElements(in: win, role: kAXButtonRole as String)
-        for (i, btn) in buttons.prefix(20).enumerated() {
-            let title = getAttribute(btn, attribute: kAXTitleAttribute as CFString) as? String ?? "<no title>"
-            let desc = getAttribute(btn, attribute: kAXDescriptionAttribute as CFString) as? String ?? ""
-            print("  \(i+1). \(title) [\(desc)]")
-        }
-
-        // Find all text fields
-        print("\n📝 Text Fields:")
-        let textFields = findElements(in: win, role: kAXTextFieldRole as String)
-        for (i, field) in textFields.prefix(10).enumerated() {
-            let title = getAttribute(field, attribute: kAXTitleAttribute as CFString) as? String ?? "<no title>"
-            print("  \(i+1). \(title)")
-        }
-
-        // Find all menus
-        print("\n📋 Menu Buttons:")
-        let menus = findElements(in: win, role: kAXMenuButtonRole as String)
-        for (i, menu) in menus.prefix(10).enumerated() {
-            let title = getAttribute(menu, attribute: kAXTitleAttribute as CFString) as? String ?? "<no title>"
-            print("  \(i+1). \(title)")
-        }
-
-        print("\nExploration complete!")
-        exit(0)
-    }
-
-    RunLoop.current.run()
-}
+```bash
+.build/debug/UniControl --interactive
 ```
 
-Then update `main.swift`:
-```swift
-exampleExplore()  // Run the explorer
+```
+unictl> usewindow Calculator
+unictl [Calculator]> dumptree 10
+  AXButton "7"
+  AXButton "Add"
+  AXButton "Equals"
+  ...
+unictl [Calculator]> waitfor Add role: AXButton
+unictl [Calculator] *> click
 ```
 
-### Method 4: Unit Testing (Advanced)
+### Method 4: Unit Tests
 
-Create test files to verify individual functions work correctly.
-
-**Create `UniControlTests/CoreTests.swift`**:
-```swift
-import XCTest
-@testable import UniControl
-
-class ElementFinderTests: XCTestCase {
-    func testGetAttribute() {
-        // Test that getAttribute doesn't crash with invalid input
-        // Add actual test cases based on your needs
-    }
-
-    func testFindElementsMaxDepth() {
-        // Test that depth limiting works
-    }
-}
-```
+Unit tests live in `Tests/UniControlCoreTests/` and run with `swift test`. They cover the parser (including diagnostics), command registry consistency, MCP tool generation, and the suggestion engine. When adding a new DSL command, add a sample line to `CommandRegistryTests.testEveryBuiltInVerbIsParseable` — it fails if a registered verb has no parser support.
 
 ## Recommended Test Applications
 

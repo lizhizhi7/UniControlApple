@@ -1,28 +1,27 @@
 # Simple Calculator Test
-# This tests basic UniControl functionality
+# This tests basic UniControl functionality.
+# Note: Calculator's operator buttons are titled "Add"/"Equals" in the
+# accessibility tree, not "+"/"=" (use `dumptree` to discover titles).
 
+mode strict
 log Starting Calculator test
 launch Calculator
-wait 3
 
 log Clicking number 5
-find 5 role: AXButton
+waitfor 5 role: AXButton timeout: 10
 click
-wait 0.5
 
-log Clicking plus button
-find + role: AXButton
+log Clicking Add button
+waitfor Add role: AXButton
 click
-wait 0.5
 
 log Clicking number 3
-find 3 role: AXButton
+waitfor 3 role: AXButton
 click
-wait 0.5
 
-log Clicking equals button
-find = role: AXButton
+log Clicking Equals button
+waitfor Equals role: AXButton
 click
-wait 0.5
 
+assert exists Equals role: AXButton
 log Test complete! Result should be 8 in Calculator

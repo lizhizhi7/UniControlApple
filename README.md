@@ -39,16 +39,22 @@ Create a `.unictl` script:
 ```
 # example.unictl
 launch Calculator
-wait 1
-find 7
+waitfor 7 role: AXButton timeout: 10
 click
-find +
+waitfor Add role: AXButton
 click
-find 3
+waitfor 3 role: AXButton
 click
-find =
+waitfor Equals role: AXButton
 click
 log Result: 7 + 3 = 10
+```
+
+Tip: element titles come from the accessibility tree, which doesn't always match the visible label (Calculator's plus button is titled `Add`). Use `dumptree` to discover what an app actually exposes:
+
+```
+usewindow Calculator
+dumptree 10
 ```
 
 Run it:

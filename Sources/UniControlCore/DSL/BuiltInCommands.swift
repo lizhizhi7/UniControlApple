@@ -454,15 +454,18 @@ public enum BuiltInCommands {
             Example script:
             ```
             launch Calculator
-            wait 1
-            find 7
+            waitfor 7 role: AXButton timeout: 10
             click
-            find +
+            waitfor Add role: AXButton
             click
-            find 3
+            waitfor 3 role: AXButton
             click
-            find =
+            waitfor Equals role: AXButton
             click
+            assert exists Equals role: AXButton
+
+            Tip: button titles come from the accessibility tree (Calculator's plus
+            button is titled "Add", not "+"). Use dump_tree to discover titles.
             ```
             """,
         category: .composite,

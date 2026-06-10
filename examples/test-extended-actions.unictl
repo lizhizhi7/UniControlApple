@@ -15,7 +15,7 @@ find 7
 click
 wait 0.3
 
-find +
+find Add role: AXButton
 click
 wait 0.3
 
@@ -23,7 +23,7 @@ find 3
 click
 wait 0.3
 
-find =
+find Equals role: AXButton
 click
 wait 1
 

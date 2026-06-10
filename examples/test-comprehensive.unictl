@@ -25,7 +25,7 @@ click
 wait 0.3
 
 log 1.3: Focus action
-find =
+find Equals role: AXButton
 focus
 wait 0.3
 click
@@ -61,7 +61,7 @@ find Cientific
 # Should show suggestions for "Scientific"
 
 log 2.4: Multiple operations with some failures
-find +
+find Add role: AXButton
 click
 wait 0.3
 
@@ -73,7 +73,7 @@ find 5
 click
 wait 0.3
 
-find =
+find Equals role: AXButton
 click
 wait 1
 
