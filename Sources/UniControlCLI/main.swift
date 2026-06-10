@@ -31,6 +31,8 @@ func printUsage() {
       --interactive, -i Start interactive REPL mode
       --serve [port]    Start HTTP/WebSocket server (default port: 8080)
       --mcp             Start MCP server (Model Context Protocol for Claude Desktop)
+      --record [path]   Record your clicks/keystrokes as a .unictl script
+                        (Ctrl+C to stop; keystrokes need Input Monitoring)
       --help, -h        Show this help message
       --version, -v     Show version information
 
@@ -365,6 +367,8 @@ var serverPort = 8080
 var interactiveMode = false
 var mcpMode = false
 var jsonOutput = false
+var recordMode = false
+var recordPath: String? = nil
 
 var i = 1
 while i < CommandLine.arguments.count {
@@ -395,6 +399,13 @@ while i < CommandLine.arguments.count {
         mcpMode = true
     case "--json":
         jsonOutput = true
+    case "--record":
+        recordMode = true
+        // Optional output path argument
+        if i + 1 < CommandLine.arguments.count, !CommandLine.arguments[i + 1].hasPrefix("-") {
+            recordPath = CommandLine.arguments[i + 1]
+            i += 1
+        }
     default:
         if arg.hasPrefix("-") {
             print("Unknown option: \(arg)")
@@ -422,7 +433,44 @@ if showVersion {
 ExtensionRegistry.shared.register(ExcelExtension.self)
 
 // Run in appropriate mode
-if mcpMode {
+if recordMode {
+    if !checkAccessibilityPermission() {
+        print("❌ Accessibility permission required for recording.")
+        print("See docs/ACCESSIBILITY_PERMISSIONS.md")
+        exit(1)
+    }
+
+    let recorder = OperationRecorder()
+    guard recorder.start() else {
+        print("❌ Could not create the event tap. Recording needs Accessibility")
+        print("   (and Input Monitoring for keystrokes) granted to this terminal.")
+        exit(1)
+    }
+
+    let outputPath = recordPath ?? "recorded-\(Int(Date().timeIntervalSince1970)).unictl"
+    print("🔴 Recording started — interact with any app. Press Ctrl+C to stop.")
+    if !recorder.keyboardCaptured {
+        print("⚠️  Keyboard capture unavailable (grant Input Monitoring to record keystrokes); recording clicks only.")
+    }
+    print("   Output: \(outputPath)\n")
+
+    signal(SIGINT, SIG_IGN)
+    let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+    sigintSource.setEventHandler {
+        recorder.stop()
+        if recorder.save(to: outputPath) {
+            print("\n✅ Saved \(recorder.lines.count) recorded command(s) to \(outputPath)")
+            print("   Replay with: UniControl \(outputPath)")
+        } else {
+            print("\n❌ Could not write \(outputPath)")
+            print(recorder.script())
+        }
+        exit(0)
+    }
+    sigintSource.resume()
+
+    RunLoop.main.run()
+} else if mcpMode {
     // MCP mode - stdio transport for Claude Desktop and other MCP clients
     // Note: Don't check permissions here - MCP clients will get permission errors
     // when they try to execute commands, which is more informative
