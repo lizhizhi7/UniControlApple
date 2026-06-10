@@ -149,6 +149,8 @@ After configuration, Claude can control your Mac:
 | `get_apps` | List running applications |
 | `get_element` | Get info about current element |
 | `dump_tree` | Dump the UI element tree for discovery |
+| `screenshot` | Capture the current window; returns the image + coordinate mapping (needs Screen Recording permission) |
+| `click_at` | Click at absolute screen coordinates (left/right/double) |
 | `execute_script` | Run multi-command DSL script |
 | `reset_session` | Clear session context |
 
@@ -190,11 +192,15 @@ curl -X POST http://localhost:8080/mcp \
 | `selectmenuitem` | `selectmenuitem File > Save` | Select menu item |
 | `assert` | `assert exists Saved` | Verify a condition |
 | `dumptree` | `dumptree 3` | Dump UI element tree |
+| `screenshot` | `screenshot /tmp/win.png` | Capture current window to PNG |
+| `clickat` | `clickat 450 320 double` | Click at screen coordinates |
 | `reset` | `reset` | Clear session context |
 | `log` | `log Step complete` | Print message |
 | `mode` | `mode strict` | Set error handling |
 
 Invalid lines no longer fail silently: scripts with unknown commands or malformed arguments are rejected before execution, with line numbers and "did you mean" suggestions.
+
+`find` ranks matches (exact > prefix > contains; title > description > value) and reports alternatives when several elements match, so it never silently clicks the wrong one. See [docs/AI_INTEGRATION_PLAN.md](docs/AI_INTEGRATION_PLAN.md) for the AI-control design rationale and roadmap.
 
 ## Documentation
 
@@ -204,6 +210,7 @@ Invalid lines no longer fail silently: scripts with unknown commands or malforme
 - [**Testing Guide**](docs/TESTING_GUIDE.md) - Testing strategies and examples
 - [**Accessibility Permissions**](docs/ACCESSIBILITY_PERMISSIONS.md) - Permission setup guide
 - [**Troubleshooting**](docs/TROUBLESHOOTING.md) - Common errors and solutions
+- [**AI Integration Plan**](docs/AI_INTEGRATION_PLAN.md) - MCP-first design rationale and roadmap
 - [**Extension System**](docs/EXTENSION_SYSTEM.md) - Creating custom DSL extensions
 - [**Excel Extension**](docs/extensions/EXCEL_EXTENSION.md) - Excel-specific commands
 

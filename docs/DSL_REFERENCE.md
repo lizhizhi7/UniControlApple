@@ -116,6 +116,17 @@ dumptree
 dumptree 2
 ```
 
+#### `screenshot [file-path]`
+
+Captures the current window to a PNG (default: a temp file) and reports the window's screen frame so positions in the image can be converted to screen coordinates for `clickat`. In MCP mode the image itself is returned to the model. Requires **Screen Recording** permission (separate from Accessibility).
+
+```
+screenshot
+screenshot /tmp/window.png
+```
+
+**Match ranking:** `find`/`waitfor` rank candidates by match quality (exact > exact case-insensitive > prefix > contains) and attribute priority (title > description > help > value). When several elements match, the best one is selected, all matches are kept for `find index: n`, and the alternatives are reported.
+
 ### Click Actions
 
 #### `click`
@@ -143,6 +154,16 @@ Performs a right-click (context menu) on the currently selected element.
 ```
 find icon.png
 rightclick
+```
+
+#### `clickat <x> <y> [right|double]`
+
+Clicks at absolute screen coordinates (points, origin at the top-left of the main display). Use as a fallback when an element is not reachable through the accessibility tree — derive coordinates from `screenshot` (which reports the window's frame) or from `getelement` positions.
+
+```
+clickat 450 320
+clickat 450 320 right
+clickat 450 320 double
 ```
 
 ### Text Input

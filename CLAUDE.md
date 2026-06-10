@@ -267,6 +267,7 @@ waitfor <selector> [timeout: <sec>]    # Poll until element appears (default 5s)
 
 # Perform actions
 click / doubleclick / rightclick       # Click current element
+clickat <x> <y> [right|double]         # Click at absolute screen coordinates
 type <text>                            # Type text into current element
 setvalue <value>                       # Set current element's value directly
 presskey <combo>                       # Keyboard shortcut (e.g. cmd+s)
@@ -285,6 +286,7 @@ getwindows                             # Get all visible windows (alias: getwind
 getapps                                # Get all running applications (alias: getapp)
 getelement                             # Get detailed info about current element
 dumptree [depth]                       # Dump UI element tree (default depth 4)
+screenshot [path]                      # Capture current window to PNG (needs Screen Recording permission)
 
 # Session
 reset                                  # Clear window/element context

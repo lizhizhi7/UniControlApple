@@ -2,6 +2,8 @@
 
 UniControl controls other applications through the macOS Accessibility (AX) APIs, which require the **Accessibility** permission (System Settings → Privacy & Security → Accessibility).
 
+The `screenshot` command additionally requires **Screen Recording** permission (System Settings → Privacy & Security → Screen Recording). It follows the same responsible-process rules described below — grant it once to your terminal or MCP host.
+
 ## Why macOS keeps asking (and how to make it stop)
 
 macOS ties an Accessibility grant to the **responsible process** and its **code signing identity**:

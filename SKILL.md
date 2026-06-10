@@ -43,6 +43,9 @@ usewindow Untitled              # control the window titled like "Untitled"
 | `find` | `find role: <AXRole> state: <state>` | Find by role and state |
 | `waitfor` | `waitfor <selector> [timeout: <sec>]` | Poll until element appears (default timeout 5s); selects it like `find` |
 | `dumptree` | `dumptree [depth]` | Print the UI element tree (role, title, value) for discovery |
+| `screenshot` | `screenshot [path]` | Capture the current window to PNG; reports the window's screen frame for coordinate math (needs Screen Recording permission) |
+
+`find` ranks matches: exact > prefix > contains, with title > description > value. When several elements match, all are kept and reported — use `find index: n` to pick a different one.
 
 ```
 find Save
@@ -79,6 +82,7 @@ dumptree 3
 | `click` | `click` | Click current element |
 | `doubleclick` | `doubleclick` | Double-click current element |
 | `rightclick` | `rightclick` | Right-click current element |
+| `clickat` | `clickat <x> <y> [right\|double]` | Click at absolute screen coordinates (fallback when elements aren't in the AX tree; get coordinates from `screenshot` or `getelement`) |
 | `type` | `type <text>` | Type text into current element |
 | `setvalue` | `setvalue <value>` | Set element's value directly (no keyboard simulation) |
 | `focus` | `focus` | Focus current element |

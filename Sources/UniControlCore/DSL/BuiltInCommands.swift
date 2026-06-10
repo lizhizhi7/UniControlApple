@@ -494,6 +494,8 @@ public enum BuiltInCommands {
             - getapps: Get all apps (with frontmost/working markers)
             - getelement: Get current element info
             - dumptree [depth]: Dump UI element tree for discovery
+            - screenshot [path]: Capture current window to PNG
+            - clickat <x> <y> [right|double]: Click at screen coordinates
             - reset: Clear session context
             - log <message>: Log a message
 

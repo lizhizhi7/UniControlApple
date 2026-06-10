@@ -77,11 +77,13 @@ func printUsage() {
         - launch_app, use_window: Launch apps or attach to open windows
         - find_element, wait_for: Find UI elements (wait_for polls until present)
         - click, double_click, right_click: Click actions
+        - click_at: Click at absolute screen coordinates
         - type_text, set_value: Type into or set value of text fields
         - press_key: Keyboard shortcuts
         - scroll, wait: Navigation and timing
         - get_system_info, get_windows, get_apps, get_element: State queries
         - dump_tree: Dump the UI element tree for discovery
+        - screenshot: Capture the current window (returns the image)
         - assert: Verify conditions (exists/missing/enabled/disabled/value)
         - execute_script: Run multi-command DSL scripts
 
@@ -196,6 +198,8 @@ func printInteractiveHelp() {
       wait <seconds>            - Wait for specified duration
       assert <condition>        - Verify exists/missing/enabled/disabled/value
       dumptree [depth]          - Dump UI element tree for discovery
+      screenshot [path]         - Capture current window to PNG
+      clickat <x> <y> [right|double] - Click at screen coordinates
       log <message>             - Print a message
       presskey <key-combo>      - Press key combination (e.g., cmd+c)
 
