@@ -6,10 +6,13 @@ This document describes how to use the UniControl DSL to automate macOS applicat
 
 ```
 launch <app-name>                    # Launch app and get its window
+usewindow [title]                    # Attach to an open window (frontmost if no title)
 find <title> [role: <AXRole>]        # Find UI element
+waitfor <selector> [timeout: <sec>]  # Wait until element appears (preferred over wait)
+dumptree [depth]                     # Discover what elements exist
 click                                # Click current element
 type <text>                          # Type into current element
-wait <seconds>                       # Pause execution
+assert exists <selector>             # Verify an action worked
 ```
 
 ## Commands
@@ -19,11 +22,13 @@ wait <seconds>                       # Pause execution
 | Command | Syntax | Description |
 |---------|--------|-------------|
 | `launch` | `launch <app-name>` | Launch application by name (partial match OK) |
+| `usewindow` | `usewindow [title-substring]` | Attach to an already-open window; frontmost when no title given |
 
 ```
 launch Safari
 launch Microsoft Excel
-launch System Settings
+usewindow                       # control whatever window is frontmost
+usewindow Untitled              # control the window titled like "Untitled"
 ```
 
 ### Element Finding
@@ -36,6 +41,8 @@ launch System Settings
 | `find` | `find index: <n>` | Select nth element from previous search |
 | `find` | `find pattern: <regex>` | Find by regex pattern |
 | `find` | `find role: <AXRole> state: <state>` | Find by role and state |
+| `waitfor` | `waitfor <selector> [timeout: <sec>]` | Poll until element appears (default timeout 5s); selects it like `find` |
+| `dumptree` | `dumptree [depth]` | Print the UI element tree (role, title, value) for discovery |
 
 ```
 find Save
@@ -44,6 +51,8 @@ find Submit role: AXButton
 find index: 2
 find pattern: ^Submit.*
 find role: AXTextField state: enabled
+waitfor Save role: AXButton timeout: 10
+dumptree 3
 ```
 
 **Common AX Roles:**
@@ -71,6 +80,7 @@ find role: AXTextField state: enabled
 | `doubleclick` | `doubleclick` | Double-click current element |
 | `rightclick` | `rightclick` | Right-click current element |
 | `type` | `type <text>` | Type text into current element |
+| `setvalue` | `setvalue <value>` | Set element's value directly (no keyboard simulation) |
 | `focus` | `focus` | Focus current element |
 | `check` | `check` | Check a checkbox |
 | `uncheck` | `uncheck` | Uncheck a checkbox |
@@ -134,6 +144,27 @@ wait 1
 wait 0.5
 wait 2.5
 ```
+
+### Verification
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `assert` | `assert exists <selector>` | Fail unless a matching element exists |
+| `assert` | `assert missing <selector>` | Fail if a matching element exists |
+| `assert` | `assert enabled` / `assert disabled` | Check current element's enabled state |
+| `assert` | `assert value <text>` | Check current element's value equals text |
+
+```
+assert exists Saved role: AXStaticText
+assert missing Error
+assert value 12
+```
+
+### Session
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `reset` | `reset` | Clear window/element context |
 
 ### Execution Mode
 
@@ -246,36 +277,48 @@ click
 
 ## Best Practices
 
-1. **Always wait after launch** - Apps need time to fully load
+1. **Prefer `waitfor` over fixed waits** - It proceeds as soon as the element exists and only fails after the timeout
    ```
    launch App
-   wait 2
+   waitfor Save role: AXButton timeout: 10    # better than: wait 2
    ```
 
-2. **Be specific with selectors** - Use role when multiple elements have same title
+2. **Discover before guessing** - Use `dumptree` to see what elements actually exist instead of trying titles blindly
+   ```
+   usewindow
+   dumptree 3
+   ```
+
+3. **Be specific with selectors** - Use role when multiple elements have same title
    ```
    find Save role: AXButton    # Better than just "find Save"
    ```
 
-3. **Wait after UI changes** - Give UI time to update after clicks
+4. **Verify outcomes with `assert`** - Confirm an action worked before moving on
    ```
    click
-   wait 0.5
-   find Next Element
+   assert exists Document Saved
    ```
 
-4. **Use continue mode for robustness** - Script continues even if some steps fail
+5. **Attach instead of relaunching** - If the app is already open, `usewindow` avoids launch delays
    ```
-   mode continue
+   usewindow My Spreadsheet
    ```
 
-5. **Log progress** - Helps with debugging
+6. **Use strict mode for unattended runs** - Stop at the first failure rather than cascading
+   ```
+   mode strict
+   ```
+
+7. **Log progress** - Helps with debugging
    ```
    log Starting step 1
    find Button
    click
    log Step 1 complete
    ```
+
+Note: scripts with unknown commands or malformed arguments are rejected before execution with line numbers and "did you mean" suggestions — fix the reported lines and rerun.
 
 ## Error Handling
 

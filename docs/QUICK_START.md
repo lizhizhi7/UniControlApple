@@ -10,7 +10,7 @@ swift build
 # Executable at .build/debug/UniControl
 
 # Or using Xcode
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 ✅ You should see `** BUILD SUCCEEDED **`
@@ -61,7 +61,7 @@ exampleDSLFromFile()
 
 2. Rebuild:
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 3. Run with Calculator test script:
@@ -145,7 +145,7 @@ exampleDSLFromFile()      // Load script from .unictl file
 
 After changing, rebuild:
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 ## Troubleshooting
@@ -167,7 +167,7 @@ xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug
 ```bash
 # Clean and rebuild
 rm -rf ~/Library/Developer/Xcode/DerivedData/UniControl-*
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 ## What's Next?

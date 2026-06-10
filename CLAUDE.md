@@ -25,10 +25,10 @@ UniControl is a foundational component in the **Control Methods layer** of the u
 ### UniControl CLI
 ```bash
 # Build the CLI tool
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 
 # Run the CLI
-./build/Debug/UniControl   # or ./build/Release/UniControl
+.build/debug/UniControl   # or .build/release/UniControl
 ```
 
 ### UniControlApp (GUI)
@@ -59,9 +59,9 @@ Sources/
     ├── DSL/                        # Domain Specific Language
     │   ├── CommandDescriptor.swift # Command metadata types (ParameterDescriptor, CommandCategory)
     │   ├── CommandRegistry.swift   # Central registry for all commands
-    │   ├── BuiltInCommands.swift   # All 27 built-in command definitions
-    │   ├── DSLTypes.swift          # Type definitions (Command, Action, Selector, etc.)
-    │   ├── DSLParser.swift         # Text script parser
+    │   ├── BuiltInCommands.swift   # All built-in command definitions
+    │   ├── DSLTypes.swift          # Type definitions (Command, Action, Selector, Assertion, etc.)
+    │   ├── DSLParser.swift         # Text script parser with line-numbered diagnostics
     │   ├── DSLExecutor.swift       # Command executor with context management
     │   ├── DSLExtension.swift      # Extension protocol definition
     │   └── ExtensionRegistry.swift # Extension registration and lookup
@@ -70,15 +70,33 @@ Sources/
     ├── MCP/                        # Model Context Protocol support
     │   ├── MCPTypes.swift          # JSON-RPC and MCP type definitions
     │   ├── MCPToolRegistry.swift   # MCP tool generation from CommandRegistry
-    │   └── MCPHandler.swift        # MCP request handling
+    │   ├── MCPHandler.swift        # MCP request handling
+    │   ├── MCPStdioTransport.swift # stdio transport (Claude Desktop)
+    │   └── MCPHTTPTransport.swift  # HTTP transport
+    ├── Server/                     # HTTP/WebSocket server (Hummingbird)
+    │   ├── UniControlServer.swift  # Server routes and execution
+    │   ├── ServerTypes.swift       # Request/response types
+    │   └── OutputCapture.swift     # Structured output capture for server/MCP modes
     ├── Core/                       # Core automation functionality
     │   ├── AppLauncher.swift       # Application launching and window management
-    │   ├── ElementFinder.swift     # UI element discovery and search
-    │   ├── ElementInteraction.swift # Element interaction (click, type, etc.)
-    │   └── SystemState.swift       # System/app/window state retrieval
+    │   ├── ElementFinder.swift     # UI element discovery, search, and tree dumping
+    │   ├── ElementInteraction.swift # Element interaction (click, type, keys, etc.)
+    │   ├── SystemState.swift       # System/app/window state retrieval
+    │   ├── ScreenCapture.swift     # Window screenshots for vision fallback
+    │   └── VisionProcessor.swift   # OCR-based element finding fallback
     └── Utils/                      # Utility functions
-        └── Permissions.swift       # Accessibility permission handling
+        ├── Permissions.swift       # Accessibility permission handling
+        ├── SuggestionEngine.swift  # "Did you mean" suggestions for failed finds
+        └── ElementDebugger.swift   # Element debugging helpers
+
+Tests/
+└── UniControlCoreTests/            # Unit tests (pure logic, no Accessibility permission needed)
+    ├── DSLParserTests.swift        # Parser and diagnostics tests
+    ├── CommandRegistryTests.swift  # Registry/MCP-tool consistency tests
+    └── SuggestionEngineTests.swift # Suggestion scoring tests
 ```
+
+Run tests with `swift test` — they exercise only pure logic and never trigger an Accessibility permission prompt.
 
 ### UniControlApp (GUI)
 
@@ -111,23 +129,25 @@ UniControlApp/
 
 ### Module Overview
 
-#### 1. DSL Layer (`UniControl/DSL/`)
+#### 1. DSL Layer (`Sources/UniControlCore/DSL/`)
 
 **Purpose**: Provides a declarative domain-specific language for automation workflows.
 
 **Key Components**:
 - **DSLTypes.swift**
-  - `ElementSelector`: Flexible element selection (byTitle, byRole, byTitleAndRole, byIndex, all)
-  - `Action`: Actions to perform (click, type, setValue, wait)
-  - `Command`: High-level commands (launch, find, perform, assert, log, getSystem, getWindows, getElement, getApps)
+  - `ElementSelector`: Flexible element selection (byTitle, byRole, byTitleAndRole, byIndex, byState, byRegex, all)
+  - `Action`: Actions to perform (click, type, setValue, wait, scroll, pressKey, menu/checkbox/stepper actions)
+  - `Command`: High-level commands (launch, useWindow, find, waitFor, perform, assert, dumpTree, reset, log, getSystem, getWindows, getElement, getApps)
+  - `Assertion`: Verifiable conditions (exists/notExists/enabled/value)
   - `CommandResult`: Result wrapper (success/failure)
   - `ExecutionContext`: Maintains state across commands (window, element, variables)
   - State info structs: `ElementInfo`, `SystemInfo`, `WindowInfo`, `AppInfo` for structured responses
 
 - **DSLParser.swift**
   - Parses text-based `.unictl` scripts
+  - `parseWithDiagnostics()` returns commands plus line-numbered `ParseError`s with "did you mean" suggestions; invalid scripts are rejected before execution in CLI, server, and MCP modes
   - Supports comments (`#` and `//`)
-  - Flexible selector syntax (`role:`, `type:`)
+  - Flexible selector syntax (`role:`, `type:`, `index:`, `pattern:`, `state:`)
 
 - **DSLExecutor.swift**
   - Executes parsed commands sequentially
@@ -150,7 +170,7 @@ UniControlApp/
   - `setEnabled`/`isEnabled` for enable/disable with persistence support
   - `getConfig`/`setConfig` for extension-scoped configuration
 
-#### 2. Core Layer (`UniControl/Core/`)
+#### 2. Core Layer (`Sources/UniControlCore/Core/`)
 
 **Purpose**: Low-level accessibility API wrappers and automation primitives.
 
@@ -177,7 +197,7 @@ UniControlApp/
   - `clickElement()`: Perform click action
   - `printElementInfo()`: Debug element details
 
-#### 3. Utils Layer (`UniControl/Utils/`)
+#### 3. Utils Layer (`Sources/UniControlCore/Utils/`)
 
 **Purpose**: Cross-cutting utility functions.
 
@@ -186,19 +206,9 @@ UniControlApp/
   - `checkAccessibilityPermission()`: Check permission status
   - `requestAccessibilityPermission()`: Prompt user for permissions
 
-#### 4. Examples Layer (`UniControl/Examples/`)
+#### 4. Tests (`Tests/UniControlCoreTests/`)
 
-**Purpose**: Demonstrate usage patterns and serve as integration tests.
-
-**Key Components**:
-- **DirectControlExample.swift**
-  - `exampleOld()`: Legacy demonstration
-  - `exampleControlFlow()`: Step-by-step Excel automation
-
-- **DSLExamples.swift**
-  - `exampleDSLSimple()`: Text-based script parsing
-  - `exampleDSLComplex()`: Programmatic command construction
-  - `exampleDSLFromFile()`: Load scripts from files
+**Purpose**: Fast unit tests for the pure-logic layers (parser, registry, MCP tool generation, suggestions). They run with `swift test`, need no Accessibility permission, and are enforced in CI. Example `.unictl` scripts in `examples/` serve as manual integration tests (these do need permission; see `docs/ACCESSIBILITY_PERMISSIONS.md`).
 
 ### UniControlApp Architecture
 
@@ -242,28 +252,42 @@ UniControl includes a simple but powerful DSL for defining automation workflows.
 ```
 # Comments start with # or //
 
-# Launch an application
-launch <app-name>
+# Launch or attach to an application
+launch <app-name>                      # Launch app and use its window
+usewindow                              # Attach to the frontmost window
+usewindow <title-substring>            # Attach to an open window by title
 
 # Find UI elements
 find <element-title>                    # Find by title
 find <title> role: <role-name>         # Find by title and role
 find role: <role-name>                 # Find by role only
+find pattern: <regex>                  # Find by regex on title/description/value
+find index: <n>                        # Pick nth element from last multi-result find
+waitfor <selector> [timeout: <sec>]    # Poll until element appears (default 5s)
 
 # Perform actions
-click                                   # Click current element
+click / doubleclick / rightclick       # Click current element
 type <text>                            # Type text into current element
+setvalue <value>                       # Set current element's value directly
+presskey <combo>                       # Keyboard shortcut (e.g. cmd+s)
+scroll <up|down|left|right>            # Scroll
 wait <seconds>                         # Wait for specified duration
+
+# Verification
+assert exists <selector>               # Fail unless a matching element exists
+assert missing <selector>              # Fail if a matching element exists
+assert enabled / assert disabled      # Check current element state
+assert value <text>                    # Check current element's value
 
 # State retrieval commands
 getsystem                              # Get OS version, hostname, architecture, username
-getwindows                             # Get all visible windows
-getwindows active                      # Get active window only (alias: getwindow)
-getapps                                # Get all running applications
-getapps frontmost                      # Get frontmost app only (alias: getapp)
+getwindows                             # Get all visible windows (alias: getwindow)
+getapps                                # Get all running applications (alias: getapp)
 getelement                             # Get detailed info about current element
+dumptree [depth]                       # Dump UI element tree (default depth 4)
 
-# Logging
+# Session
+reset                                  # Clear window/element context
 log <message>                          # Print message to console
 ```
 
@@ -329,11 +353,13 @@ public static let myCommand = CommandDescriptor(
 
 2. **Add to the `all` array** in `BuiltInCommands.swift`
 
-3. **Add parsing logic** in `DSLParser.parseCommand()` in `DSL/DSLParser.swift`
+3. **Add parsing logic** in `DSLParser.parseCommand()` in `DSL/DSLParser.swift` (return `.failure(ParseFailure("..."))` with a helpful message for malformed arguments)
 
-4. **Add execution logic** in `DSLExecutor.executeCommand()` in `DSL/DSLExecutor.swift`
+4. **Add execution logic** in `DSLExecutor.executeCommandCore()` in `DSL/DSLExecutor.swift`
 
-MCP tools and autocomplete suggestions are **automatically generated** from the CommandDescriptor.
+5. **Add a sample line** to the table in `Tests/UniControlCoreTests/CommandRegistryTests.swift` (`testEveryBuiltInVerbIsParseable` fails until you do — this guards against descriptors without parser support)
+
+MCP tools, autocomplete suggestions, and editor syntax highlighting are **automatically generated** from the CommandDescriptor.
 
 ### Adding an Extension Command
 

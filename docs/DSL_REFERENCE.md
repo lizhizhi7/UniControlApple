@@ -43,6 +43,17 @@ launch System Settings
 - Uses substring matching (e.g., "Excel" matches "Microsoft Excel.app")
 - Waits up to ~10 seconds for the application window
 
+#### `usewindow [title-substring]`
+
+Attaches to an already-open window without launching anything. With no argument, attaches to the frontmost window; with an argument, attaches to the first window (of any app) whose title contains the substring (case-insensitive).
+
+```
+usewindow                  # control the frontmost window
+usewindow Untitled         # control the window titled like "Untitled"
+```
+
+Use `getwindows` to list candidate windows.
+
 ### Element Finding
 
 #### `find <selector>`
@@ -87,6 +98,24 @@ find role: AXButton       # Finds all buttons, selects first
 find index: 3             # Select the 4th button (0-indexed)
 ```
 
+#### `waitfor <selector> [timeout: <seconds>]`
+
+Polls the current window (every 0.25s) until an element matching the selector appears, then selects it exactly like `find`. Default timeout is 5 seconds. Prefer this over fixed `wait` calls — it proceeds as soon as the element exists and fails with a clear timeout message otherwise.
+
+```
+waitfor Save role: AXButton
+waitfor Loading Complete timeout: 30
+```
+
+#### `dumptree [depth]`
+
+Renders the UI element tree of the current window (or the current element, if one is selected) as indented text showing role, title, value, and disabled state. Default depth is 4; output is capped at 400 lines. Use this to discover what elements exist before writing `find` commands.
+
+```
+dumptree
+dumptree 2
+```
+
 ### Click Actions
 
 #### `click`
@@ -129,6 +158,37 @@ type Hello World
 ```
 
 Note: For multi-word text, simply include spaces - no quotes needed in the DSL.
+
+#### `setvalue <value>`
+
+Sets the value attribute of the currently selected element directly, without keyboard simulation. Works on text fields, sliders, and other value-bearing elements.
+
+```
+find Quantity role: AXTextField
+setvalue 42
+```
+
+### Verification
+
+#### `assert <condition>`
+
+Verifies a condition and fails the command (honoring the execution mode) if it does not hold.
+
+| Condition | Description |
+|-----------|-------------|
+| `assert exists <selector>` | An element matching the selector exists |
+| `assert missing <selector>` | No element matching the selector exists |
+| `assert enabled` | The current element is enabled |
+| `assert disabled` | The current element is disabled |
+| `assert value <text>` | The current element's value equals `<text>` |
+
+```
+click
+assert exists Document Saved
+assert missing Error role: AXStaticText
+find Total role: AXTextField
+assert value 100
+```
 
 ### Navigation & Focus
 
@@ -339,6 +399,25 @@ Element: AXButton - "Submit"
 ```
 
 JSON response includes: `role`, `roleDescription`, `title`, `description`, `value`, `enabled`, `focused`, `selected`, `expanded`, `position`, `size`, `actions`, `childrenCount`
+
+### Session
+
+#### `reset`
+
+Clears the session context: current window, current element, found elements, and variables.
+
+```
+reset
+```
+
+### Parse Diagnostics
+
+Scripts are validated before execution. Unknown commands and malformed arguments are reported with line numbers and "did you mean" suggestions, and **nothing is executed** until the script parses cleanly:
+
+```
+❌ Script has 1 parse error(s) — nothing was executed:
+   line 3: Unknown command 'clik'. Did you mean 'click'?  →  "clik"
+```
 
 ### Enhanced Find Results
 

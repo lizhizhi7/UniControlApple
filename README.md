@@ -22,15 +22,14 @@ UniControl requires **Accessibility permissions** to control other applications:
 
 ### Build
 
-**Using Swift Package Manager:**
 ```bash
 swift build
 # Executable at .build/debug/UniControl
 ```
 
-**Using Xcode:**
+Run the unit tests (no Accessibility permission needed):
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift test
 ```
 
 ### Run a Script
@@ -126,19 +125,24 @@ After configuration, Claude can control your Mac:
 | Tool | Description |
 |------|-------------|
 | `launch_app` | Launch a macOS application |
+| `use_window` | Attach to an already-open window (frontmost or by title) |
 | `find_element` | Find UI element by title, role, pattern, or state |
+| `wait_for` | Poll until an element appears (preferred over fixed waits) |
 | `click`, `double_click`, `right_click` | Click actions |
 | `type_text` | Type into text fields |
+| `set_value` | Set an element's value directly |
 | `press_key` | Keyboard shortcuts (e.g., `cmd+c`) |
 | `scroll` | Scroll in a direction |
 | `wait` | Wait for specified seconds |
 | `check`, `uncheck` | Toggle checkboxes |
 | `expand`, `collapse` | Toggle disclosure elements |
 | `focus` | Set keyboard focus |
+| `assert` | Verify a condition (exists/missing/enabled/disabled/value) |
 | `get_system_info` | Get macOS version, hostname, etc. |
 | `get_windows` | List visible windows |
 | `get_apps` | List running applications |
 | `get_element` | Get info about current element |
+| `dump_tree` | Dump the UI element tree for discovery |
 | `execute_script` | Run multi-command DSL script |
 | `reset_session` | Clear session context |
 
@@ -161,11 +165,14 @@ curl -X POST http://localhost:8080/mcp \
 | Command | Example | Description |
 |---------|---------|-------------|
 | `launch` | `launch Excel` | Launch application |
+| `usewindow` | `usewindow Untitled` | Attach to an open window (frontmost if no title) |
 | `find` | `find Save role: AXButton` | Find UI element |
+| `waitfor` | `waitfor Save timeout: 10` | Wait until an element appears |
 | `click` | `click` | Click current element |
 | `doubleclick` | `doubleclick` | Double-click element |
 | `rightclick` | `rightclick` | Right-click element |
 | `type` | `type Hello World` | Type text |
+| `setvalue` | `setvalue 42` | Set element value directly |
 | `wait` | `wait 2` | Wait seconds |
 | `presskey` | `presskey cmd+s` | Press key combo |
 | `scroll` | `scroll down` | Scroll element |
@@ -175,8 +182,13 @@ curl -X POST http://localhost:8080/mcp \
 | `expand` | `expand` | Expand disclosure |
 | `collapse` | `collapse` | Collapse disclosure |
 | `selectmenuitem` | `selectmenuitem File > Save` | Select menu item |
+| `assert` | `assert exists Saved` | Verify a condition |
+| `dumptree` | `dumptree 3` | Dump UI element tree |
+| `reset` | `reset` | Clear session context |
 | `log` | `log Step complete` | Print message |
 | `mode` | `mode strict` | Set error handling |
+
+Invalid lines no longer fail silently: scripts with unknown commands or malformed arguments are rejected before execution, with line numbers and "did you mean" suggestions.
 
 ## Documentation
 
@@ -194,34 +206,33 @@ curl -X POST http://localhost:8080/mcp \
 UniControl is designed as a **Control Method** in the Universal Operations architecture:
 
 ```
-UniControl/
-├── main.swift                # Entry point & CLI
-├── DSL/                      # Domain Specific Language
-│   ├── DSLTypes.swift       # Type definitions
-│   ├── DSLParser.swift      # Script parser
-│   ├── DSLExecutor.swift    # Command executor
-│   └── DSLExtension.swift   # Extension system
-├── Core/                     # Core functionality
-│   ├── AppLauncher.swift    # App launching
-│   ├── ElementFinder.swift  # Element discovery
-│   ├── ElementInteraction.swift # UI interaction
-│   ├── VisionProcessor.swift # OCR fallback
-│   └── ScreenCapture.swift  # Screenshot capture
-├── Server/                   # HTTP/WebSocket server
-│   ├── UniControlServer.swift
-│   ├── ServerTypes.swift
-│   └── OutputCapture.swift
-├── MCP/                      # Model Context Protocol
-│   ├── MCPTypes.swift       # JSON-RPC & MCP types
-│   ├── MCPToolRegistry.swift # Tool definitions
-│   ├── MCPHandler.swift     # Message handler
-│   ├── MCPStdioTransport.swift # Stdio transport
-│   └── MCPHTTPTransport.swift  # HTTP transport
-├── Extensions/               # App-specific extensions
-│   └── ExcelExtension.swift
-└── Utils/                    # Utilities
-    ├── Permissions.swift
-    └── SuggestionEngine.swift
+Sources/
+├── UniControlCLI/
+│   └── main.swift            # Entry point & CLI
+└── UniControlCore/           # Shared library (also used by the GUI app)
+    ├── DSL/                  # Domain Specific Language
+    │   ├── DSLTypes.swift           # Type definitions
+    │   ├── DSLParser.swift          # Script parser with diagnostics
+    │   ├── DSLExecutor.swift        # Command executor
+    │   ├── BuiltInCommands.swift    # Command descriptors (single source of truth)
+    │   ├── CommandRegistry.swift    # Verb/MCP-name registry
+    │   └── DSLExtension.swift       # Extension system
+    ├── Core/                 # Core functionality
+    │   ├── AppLauncher.swift        # App launching & window attachment
+    │   ├── ElementFinder.swift      # Element discovery & tree dumping
+    │   ├── ElementInteraction.swift # UI interaction
+    │   ├── SystemState.swift        # System/app/window queries
+    │   ├── VisionProcessor.swift    # OCR fallback
+    │   └── ScreenCapture.swift      # Screenshot capture
+    ├── Server/               # HTTP/WebSocket server (Hummingbird)
+    ├── MCP/                  # Model Context Protocol (stdio + HTTP transports)
+    ├── Extensions/           # App-specific extensions (Excel, ...)
+    └── Utils/                # Permissions, suggestions, debugging
+
+Tests/
+└── UniControlCoreTests/      # Unit tests (pure logic, no permissions needed)
+
+UniControlApp/                # Menu bar GUI app (consumes UniControlCore via SPM)
 ```
 
 ## Technical Details

@@ -2,30 +2,31 @@
 
 This guide shows you how to test UniControl with different applications and workflows.
 
-## Prerequisites
+## Unit Tests (no permissions needed)
+
+The fast path — parser, command registry, MCP tool generation, and suggestion logic are covered by unit tests that need **no Accessibility permission**:
+
+```bash
+swift test          # or: ./run-tests.sh
+```
+
+These run in CI on every push. The rest of this guide covers *integration* testing against real applications, which does require permissions.
+
+## Prerequisites for Integration Testing
 
 ### 1. Grant Accessibility Permissions
 
-UniControl requires Accessibility permissions to control other applications.
+UniControl requires Accessibility permissions to control other applications. Grant the permission **once to your terminal app** and it covers every rebuilt binary — see [ACCESSIBILITY_PERMISSIONS.md](ACCESSIBILITY_PERMISSIONS.md) for why and for MCP/GUI setups.
 
-**Steps**:
 1. Open **System Settings** → **Privacy & Security** → **Accessibility**
-2. Click the **+** button
-3. Navigate to the UniControl executable (or Terminal if running from command line)
-4. Enable the checkbox next to it
-
-**Alternative**: UniControl will prompt you on first run if permissions aren't granted.
+2. Add your terminal app (Terminal, iTerm, …) and enable it
+3. Restart the terminal completely
 
 ### 2. Build UniControl
 
 ```bash
-# Using Swift Package Manager (recommended)
 swift build
 # Executable at .build/debug/UniControl
-
-# Or using Xcode
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
-# Executable at build/Debug/UniControl
 ```
 
 ## Testing Methods
@@ -45,7 +46,7 @@ exampleDSLComplex()          // Programmatic DSL (currently active)
 
 After editing, rebuild:
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ./UniControl  # or use the symlink
 ```
 
@@ -412,7 +413,7 @@ for _ in 0..<40 {  // Was 20, now 40 = ~20 seconds
 # Clean build folder
 rm -rf ~/Library/Developer/Xcode/DerivedData/UniControl-*
 # Rebuild
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 ## Quick Start Test
@@ -421,7 +422,7 @@ Want to test immediately? Use this simple workflow:
 
 1. **Build**:
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ```
 
 2. **Create test script**:
@@ -442,7 +443,7 @@ exampleDSLFromFile()  // Uncomment this line
 
 4. **Rebuild and run**:
 ```bash
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build
+swift build
 ./UniControl quick-test.unictl
 ```
 
