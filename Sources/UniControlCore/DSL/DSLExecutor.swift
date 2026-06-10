@@ -213,10 +213,9 @@ public class DSLExecutor {
 
         switch selector {
         case .byTitle(let title):
-            if let element = findElement(in: window, title: title) {
-                context.currentElement = element
-                let elementInfo = buildElementInfo(element)
-                return .success(value: elementInfo)
+            let matches = rankedElements(in: window, title: title)
+            if !matches.isEmpty {
+                return selectRankedMatches(matches, query: title)
             }
 
             // Try vision fallback if available (macOS 12.3+)
@@ -247,10 +246,9 @@ public class DSLExecutor {
             return .failure(error: "Could not find elements with role: \(role)")
 
         case .byTitleAndRole(let title, let role):
-            if let element = findElement(in: window, title: title, role: role) {
-                context.currentElement = element
-                let elementInfo = buildElementInfo(element)
-                return .success(value: elementInfo)
+            let matches = rankedElements(in: window, title: title, role: role)
+            if !matches.isEmpty {
+                return selectRankedMatches(matches, query: title)
             }
 
             // Try vision fallback if available (macOS 12.3+)
@@ -353,6 +351,26 @@ public class DSLExecutor {
         }
     }
 
+    /// Select the best of several ranked title matches. With one match the
+    /// behavior is unchanged; with several, all are kept in foundElements so
+    /// `find index: n` can pick another, and the result reports the
+    /// alternatives instead of silently using the first.
+    private func selectRankedMatches(_ matches: [AXUIElement], query: String) -> CommandResult {
+        context.currentElement = matches[0]
+        context.foundElements = matches
+
+        if matches.count == 1 {
+            return .success(value: buildElementInfo(matches[0]))
+        }
+
+        let infos = matches.prefix(25).map { buildElementInfo($0) }
+        let alternatives = infos.dropFirst().prefix(5).map { info in
+            "\"\(info.title ?? info.description ?? info.value ?? "?")\" (\(info.role ?? "?"))"
+        }
+        output("\(matches.count) elements matched \"\(query)\"; selected the best match \"\(infos[0].title ?? infos[0].description ?? "?")\". Others: \(alternatives.joined(separator: ", ")). Use 'find index: n' to select another.", level: .warning)
+        return .success(value: Array(infos))
+    }
+
     // MARK: - Selector Resolution
 
     /// Resolve a selector to its matching elements without vision fallback or
@@ -361,13 +379,13 @@ public class DSLExecutor {
     private func resolveSelector(_ selector: ElementSelector, in window: AXUIElement) -> [AXUIElement] {
         switch selector {
         case .byTitle(let title):
-            return findElement(in: window, title: title).map { [$0] } ?? []
+            return rankedElements(in: window, title: title)
 
         case .byRole(let role):
             return findElements(in: window, role: role)
 
         case .byTitleAndRole(let title, let role):
-            return findElement(in: window, title: title, role: role).map { [$0] } ?? []
+            return rankedElements(in: window, title: title, role: role)
 
         case .byIndex(let index):
             if index >= 0 && index < context.foundElements.count {
@@ -576,7 +594,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if doubleClickElement(element) {
+            if withRetry({ doubleClickElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Double-click failed")
@@ -592,7 +610,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if rightClickElement(element) {
+            if withRetry({ rightClickElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Right-click failed")
@@ -641,7 +659,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if scrollElement(element, direction: direction) {
+            if withRetry({ scrollElement(element, direction: direction) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Scroll failed: \(direction)")
@@ -674,7 +692,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if incrementElement(element) {
+            if withRetry({ incrementElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Increment failed")
@@ -683,7 +701,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if decrementElement(element) {
+            if withRetry({ decrementElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Decrement failed")
@@ -692,7 +710,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if focusElement(element) {
+            if withRetry({ focusElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Focus failed")
@@ -701,7 +719,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if checkElement(element) {
+            if withRetry({ checkElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Check failed")
@@ -710,7 +728,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if uncheckElement(element) {
+            if withRetry({ uncheckElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Uncheck failed")
@@ -719,7 +737,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if expandElement(element) {
+            if withRetry({ expandElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Expand failed")
@@ -728,7 +746,7 @@ public class DSLExecutor {
             guard let element = context.currentElement else {
                 return .failure(error: "No element selected. Use 'find' first.")
             }
-            if collapseElement(element) {
+            if withRetry({ collapseElement(element) }) {
                 return .success(value: nil)
             }
             return .failure(error: "Collapse failed")
@@ -736,19 +754,27 @@ public class DSLExecutor {
     }
 
     private func typeText(_ text: String, into element: AXUIElement) -> CommandResult {
-        let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFTypeRef)
-        if result == .success {
+        var lastError: AXError = .success
+        let ok = withRetry {
+            lastError = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, text as CFTypeRef)
+            return lastError == .success
+        }
+        if ok {
             return .success(value: nil)
         }
-        return .failure(error: "Failed to type text: \(result.rawValue)")
+        return .failure(error: "Failed to type text: \(lastError.rawValue)")
     }
 
     private func setValue(_ value: String, for element: AXUIElement) -> CommandResult {
-        let result = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFTypeRef)
-        if result == .success {
+        var lastError: AXError = .success
+        let ok = withRetry {
+            lastError = AXUIElementSetAttributeValue(element, kAXValueAttribute as CFString, value as CFTypeRef)
+            return lastError == .success
+        }
+        if ok {
             return .success(value: nil)
         }
-        return .failure(error: "Failed to set value: \(result.rawValue)")
+        return .failure(error: "Failed to set value: \(lastError.rawValue)")
     }
 
     // MARK: - Interactive Mode Helpers

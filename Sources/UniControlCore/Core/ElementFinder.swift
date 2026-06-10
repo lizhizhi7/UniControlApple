@@ -65,26 +65,77 @@ public func findElements(in element: AXUIElement, role: String? = nil, maxDepth:
     return elements
 }
 
-/// Find element by title/description
-public func findElement(in rootElement: AXUIElement, title: String, role: String? = nil) -> AXUIElement? {
+/// Score how well an element's text attributes match a query.
+/// Returns nil for no match; higher scores are better.
+/// Match quality: exact > exact (case-insensitive) > prefix > contains.
+/// Attribute priority: title > description > help > value.
+public func textMatchScore(
+    title: String?,
+    description: String?,
+    help: String?,
+    value: String?,
+    query: String
+) -> Int? {
+    let attributes: [(text: String?, weight: Int)] = [
+        (title, 4),
+        (description, 3),
+        (help, 2),
+        (value, 1)
+    ]
+    let queryLower = query.lowercased()
+
+    var best: Int? = nil
+    for (text, weight) in attributes {
+        guard let text = text, !text.isEmpty else { continue }
+        let textLower = text.lowercased()
+
+        let quality: Int
+        if text == query {
+            quality = 40
+        } else if textLower == queryLower {
+            quality = 30
+        } else if textLower.hasPrefix(queryLower) {
+            quality = 20
+        } else if textLower.contains(queryLower) {
+            quality = 10
+        } else {
+            continue
+        }
+
+        let score = quality + weight
+        if best == nil || score > best! {
+            best = score
+        }
+    }
+    return best
+}
+
+/// Find all elements matching a title query, best matches first.
+/// Ranking prevents "find Save" silently clicking "Save As..." when an exact
+/// "Save" button exists. Ties keep tree (top-to-bottom) order.
+public func rankedElements(in rootElement: AXUIElement, title: String, role: String? = nil) -> [AXUIElement] {
     let elements = findElements(in: rootElement, role: role)
 
-    for element in elements {
-        // Try multiple attributes to match the title
+    var scored: [(element: AXUIElement, score: Int, order: Int)] = []
+    for (index, element) in elements.enumerated() {
         let titleAttr = getAttribute(element, attribute: kAXTitleAttribute as CFString) as? String
         let descAttr = getAttribute(element, attribute: kAXDescriptionAttribute as CFString) as? String
         let helpAttr = getAttribute(element, attribute: kAXHelpAttribute as CFString) as? String
         let valueAttr = getAttribute(element, attribute: kAXValueAttribute as CFString) as? String
 
-        if titleAttr?.contains(title) == true ||
-           descAttr?.contains(title) == true ||
-           helpAttr?.contains(title) == true ||
-           valueAttr?.contains(title) == true {
-            return element
+        if let score = textMatchScore(title: titleAttr, description: descAttr, help: helpAttr, value: valueAttr, query: title) {
+            scored.append((element, score, index))
         }
     }
 
-    return nil
+    return scored
+        .sorted { $0.score != $1.score ? $0.score > $1.score : $0.order < $1.order }
+        .map { $0.element }
+}
+
+/// Find element by title/description (best-ranked match)
+public func findElement(in rootElement: AXUIElement, title: String, role: String? = nil) -> AXUIElement? {
+    return rankedElements(in: rootElement, title: title, role: role).first
 }
 
 // MARK: - Menu Navigation

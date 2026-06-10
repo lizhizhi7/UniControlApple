@@ -289,6 +289,19 @@ private func rightClickAtPoint(_ point: CGPoint) -> Bool {
     return true
 }
 
+/// Retry a flaky AX operation a few times with a short delay.
+/// AX calls can fail transiently while a window is redrawing or an element is
+/// being re-created; one or two retries absorb most of these flakes.
+public func withRetry(attempts: Int = 3, delay: TimeInterval = 0.15, _ operation: () -> Bool) -> Bool {
+    for attempt in 1...attempts {
+        if operation() { return true }
+        if attempt < attempts {
+            Thread.sleep(forTimeInterval: delay)
+        }
+    }
+    return false
+}
+
 /// Increment element value (for spinners, sliders)
 public func incrementElement(_ element: AXUIElement) -> Bool {
     let result = AXUIElementPerformAction(element, kAXIncrementAction as CFString)
