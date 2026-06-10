@@ -1,75 +1,37 @@
 #!/bin/bash
 # UniControl Test Runner
-# Quick script to build and run tests
+#
+# Usage:
+#   ./run-tests.sh                 # run unit tests (no Accessibility permission needed)
+#   ./run-tests.sh <script.unictl> # build CLI and run a .unictl script (needs Accessibility)
+#   ./run-tests.sh calculator      # shortcut for examples/test-calculator.unictl
+#   ./run-tests.sh textedit        # shortcut for examples/test-textedit.unictl
+#   ./run-tests.sh excel           # shortcut for examples/example.unictl
 
 set -e
 
-echo "======================================"
-echo "UniControl Test Runner"
-echo "======================================"
-echo ""
+if [ $# -eq 0 ]; then
+    echo "Running unit tests (swift test)..."
+    swift test
+    exit 0
+fi
 
-# Build UniControl
-echo "📦 Building UniControl..."
-xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build 2>&1 | grep -E "(error:|warning:|BUILD)" | tail -5
-echo ""
+TEST_FILE="$1"
+case "$TEST_FILE" in
+    calculator) TEST_FILE="examples/test-calculator.unictl" ;;
+    textedit)   TEST_FILE="examples/test-textedit.unictl" ;;
+    excel)      TEST_FILE="examples/example.unictl" ;;
+esac
 
-# Find executable
-EXECUTABLE=$(find ~/Library/Developer/Xcode/DerivedData/UniControl-*/Build/Products/Debug/UniControl -type f 2>/dev/null | head -1)
-
-if [ -z "$EXECUTABLE" ]; then
-    echo "❌ Error: Could not find UniControl executable"
-    echo "   Try building manually with:"
-    echo "   xcodebuild -project UniControl.xcodeproj -scheme UniControl -configuration Debug build"
+if [ ! -f "$TEST_FILE" ]; then
+    echo "Error: script not found: $TEST_FILE"
     exit 1
 fi
 
-echo "✅ Build successful!"
-echo "📍 Executable: $EXECUTABLE"
-echo ""
+echo "Building UniControl CLI..."
+swift build
 
-# Check for test argument
-if [ $# -eq 0 ]; then
-    echo "Available test scripts:"
-    echo "  1. test-calculator.unictl  - Test with Calculator app (simple)"
-    echo "  2. test-textedit.unictl    - Test with TextEdit app (simple)"
-    echo "  3. example.unictl          - Test with Excel (complex)"
-    echo ""
-    echo "Usage: $0 [test-file.unictl]"
-    echo "   or: $0 calculator  (shortcut for test-calculator.unictl)"
-    echo "   or: $0 textedit    (shortcut for test-textedit.unictl)"
-    echo ""
-    echo "Running built-in example (exampleDSLComplex)..."
-    echo ""
-    "$EXECUTABLE"
-else
-    TEST_FILE="$1"
-
-    # Handle shortcuts
-    case "$TEST_FILE" in
-        calculator)
-            TEST_FILE="test-calculator.unictl"
-            ;;
-        textedit)
-            TEST_FILE="test-textedit.unictl"
-            ;;
-        excel)
-            TEST_FILE="example.unictl"
-            ;;
-    esac
-
-    if [ ! -f "$TEST_FILE" ]; then
-        echo "❌ Error: Test file not found: $TEST_FILE"
-        exit 1
-    fi
-
-    echo "🚀 Running test: $TEST_FILE"
-    echo "======================================"
-    echo ""
-
-    # Note: This requires main.swift to use exampleDSLFromFile()
-    echo "⚠️  Make sure main.swift is set to run exampleDSLFromFile()"
-    echo "   Then rebuild with: xcodebuild -project UniControl.xcodeproj -scheme UniControl build"
-    echo ""
-    "$EXECUTABLE" "$TEST_FILE"
-fi
+BIN="$(swift build --show-bin-path)/UniControl"
+echo "Running: $TEST_FILE"
+echo "(requires Accessibility permission; see docs/ACCESSIBILITY_PERMISSIONS.md)"
+"$BIN" "$TEST_FILE"
