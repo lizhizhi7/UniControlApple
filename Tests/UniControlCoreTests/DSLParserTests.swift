@@ -224,6 +224,38 @@ final class DSLParserTests: XCTestCase {
         XCTAssertEqual(value, "hello world")
     }
 
+    // MARK: - screenshot / clickat
+
+    func testScreenshot() {
+        guard case .screenshot(nil) = DSLParser.parse("screenshot")[0] else {
+            return XCTFail("Expected screenshot with default path")
+        }
+        guard case .screenshot(let path) = DSLParser.parse("screenshot /tmp/shot.png")[0] else {
+            return XCTFail("Expected screenshot with path")
+        }
+        XCTAssertEqual(path, "/tmp/shot.png")
+    }
+
+    func testClickAt() {
+        guard case .perform(.clickAt(let x, let y, let kind)) = DSLParser.parse("clickat 100 250.5")[0] else {
+            return XCTFail("Expected clickAt")
+        }
+        XCTAssertEqual(x, 100)
+        XCTAssertEqual(y, 250.5)
+        XCTAssertEqual(kind, .left)
+
+        guard case .perform(.clickAt(_, _, .right)) = DSLParser.parse("clickat 10 20 right")[0] else {
+            return XCTFail("Expected right clickAt")
+        }
+        guard case .perform(.clickAt(_, _, .double)) = DSLParser.parse("clickat 10 20 double")[0] else {
+            return XCTFail("Expected double clickAt")
+        }
+
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("clickat 10").errors.count, 1)
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("clickat ten twenty").errors.count, 1)
+        XCTAssertEqual(DSLParser.parseWithDiagnostics("clickat 10 20 triple").errors.count, 1)
+    }
+
     // MARK: - Aliases
 
     func testAliases() {

@@ -223,3 +223,48 @@ public func getWindowOrigin(_ window: AXUIElement) -> CGPoint {
 
     return position
 }
+
+/// Downscale an image so its longest edge is at most `maxDimension` pixels.
+/// Returns the original image if it is already small enough or scaling fails.
+public func downscaleImage(_ image: CGImage, maxDimension: CGFloat) -> CGImage {
+    let width = CGFloat(image.width)
+    let height = CGFloat(image.height)
+    let longest = max(width, height)
+    guard longest > maxDimension else { return image }
+
+    let scale = maxDimension / longest
+    let newWidth = Int(width * scale)
+    let newHeight = Int(height * scale)
+
+    guard let context = CGContext(
+        data: nil,
+        width: newWidth,
+        height: newHeight,
+        bitsPerComponent: 8,
+        bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+        return image
+    }
+
+    context.interpolationQuality = .high
+    context.draw(image, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+    return context.makeImage() ?? image
+}
+
+/// Encode an image as PNG data
+public func pngData(from image: CGImage) -> Data? {
+    let data = NSMutableData()
+    guard let destination = CGImageDestinationCreateWithData(
+        data,
+        UTType.png.identifier as CFString,
+        1,
+        nil
+    ) else {
+        return nil
+    }
+    CGImageDestinationAddImage(destination, image, nil)
+    guard CGImageDestinationFinalize(destination) else { return nil }
+    return data as Data
+}

@@ -127,11 +127,28 @@ public class DSLParser {
             }
             return .success(.dumpTree(maxDepth: 4))
 
+        case "screenshot":
+            let path = parts.count >= 2 ? parts[1...].joined(separator: " ") : nil
+            return .success(.screenshot(path: path))
+
         case "reset":
             return .success(.reset)
 
         case "click":
             return .success(.perform(action: .click))
+
+        case "clickat":
+            guard parts.count >= 3, let x = Double(parts[1]), let y = Double(parts[2]) else {
+                return .failure(ParseFailure("'clickat' requires screen coordinates (clickat <x> <y> [right|double])"))
+            }
+            var kind = ClickKind.left
+            if parts.count >= 4 {
+                guard let parsed = ClickKind(rawValue: parts[3].lowercased()) else {
+                    return .failure(ParseFailure("'clickat' click kind must be left, right, or double, got '\(parts[3])'"))
+                }
+                kind = parsed
+            }
+            return .success(.perform(action: .clickAt(x: x, y: y, kind: kind)))
 
         case "doubleclick":
             return .success(.perform(action: .doubleClick))

@@ -53,6 +53,7 @@ final class CommandRegistryTests: XCTestCase {
             "find": "find Save role: AXButton",
             "waitfor": "waitfor Save timeout: 2",
             "click": "click",
+            "clickat": "clickat 100 200",
             "doubleclick": "doubleclick",
             "rightclick": "rightclick",
             "type": "type hello",
@@ -74,6 +75,7 @@ final class CommandRegistryTests: XCTestCase {
             "getapps": "getapps",
             "getelement": "getelement",
             "dumptree": "dumptree 3",
+            "screenshot": "screenshot",
             "assert": "assert exists Save",
             "reset": "reset",
             "log": "log hello",
@@ -109,6 +111,8 @@ final class CommandRegistryTests: XCTestCase {
         XCTAssertTrue(toolNames.contains("dump_tree"))
         XCTAssertTrue(toolNames.contains("assert"))
         XCTAssertTrue(toolNames.contains("set_value"))
+        XCTAssertTrue(toolNames.contains("screenshot"))
+        XCTAssertTrue(toolNames.contains("click_at"))
     }
 
     func testMCPToolSchemaHasRequiredParameters() {

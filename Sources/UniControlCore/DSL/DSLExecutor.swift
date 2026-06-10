@@ -149,6 +149,9 @@ public class DSLExecutor {
         case .dumpTree(let maxDepth):
             return executeDumpTree(maxDepth: maxDepth)
 
+        case .screenshot(let path):
+            return executeScreenshot(path: path)
+
         case .reset:
             context.reset()
             output("Session context reset", level: .info)
@@ -498,6 +501,38 @@ public class DSLExecutor {
         return .success(value: title)
     }
 
+    // MARK: - Screenshot
+
+    /// Capture the current window to a PNG file. Returns the saved path and
+    /// reports the window's screen frame so screen coordinates (for clickat)
+    /// can be derived from positions in the image.
+    private func executeScreenshot(path: String?) -> CommandResult {
+        guard let window = context.currentWindow else {
+            return .failure(error: "No active window. Launch an app or use 'usewindow' first.")
+        }
+
+        guard #available(macOS 12.3, *) else {
+            return .failure(error: "Screenshots require macOS 12.3 or later")
+        }
+
+        guard let image = captureWindowSync(window) else {
+            return .failure(error: "Screenshot capture failed. This usually means Screen Recording permission is missing (System Settings → Privacy & Security → Screen Recording) or the window is minimized.")
+        }
+
+        context.lastScreenshot = image
+
+        let targetPath = path ?? NSTemporaryDirectory() + "unictl-screenshot-\(Int(Date().timeIntervalSince1970)).png"
+        guard saveScreenshot(image, path: targetPath) else {
+            return .failure(error: "Could not write screenshot to \(targetPath)")
+        }
+
+        let bounds = captureWindowBounds(window) ?? .zero
+        output("Screenshot saved: \(targetPath)", level: .info)
+        output("Window frame on screen: origin (\(Int(bounds.origin.x)), \(Int(bounds.origin.y))), size \(Int(bounds.width))x\(Int(bounds.height)) points; image is \(image.width)x\(image.height) pixels", level: .info)
+
+        return .success(value: targetPath)
+    }
+
     // MARK: - Tree Dump
 
     private func executeDumpTree(maxDepth: Int) -> CommandResult {
@@ -561,6 +596,19 @@ public class DSLExecutor {
                 return .success(value: nil)
             }
             return .failure(error: "Right-click failed")
+
+        case .clickAt(let x, let y, let kind):
+            let point = CGPoint(x: x, y: y)
+            let success: Bool
+            switch kind {
+            case .left: success = clickAtCoordinate(point: point)
+            case .right: success = rightClickAtCoordinate(point: point)
+            case .double: success = doubleClickAtCoordinate(point: point)
+            }
+            if success {
+                return .success(value: nil)
+            }
+            return .failure(error: "Coordinate \(kind.rawValue)-click failed at (\(Int(x)), \(Int(y)))")
 
         case .type(let text):
             // Check if we have a vision element (fallback mode)

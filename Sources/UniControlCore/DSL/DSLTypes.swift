@@ -216,11 +216,19 @@ extension ElementSelector: CustomStringConvertible {
     }
 }
 
+/// Kind of click for coordinate-based clicking
+public enum ClickKind: String {
+    case left
+    case right
+    case double
+}
+
 /// Represents an action to perform on an element
 public enum Action {
     case click
     case doubleClick
     case rightClick
+    case clickAt(x: Double, y: Double, kind: ClickKind)
     case type(String)
     case setValue(String)
     case wait(TimeInterval)
@@ -254,6 +262,7 @@ public enum Command {
     case waitFor(selector: ElementSelector, timeout: TimeInterval)
     case useWindow(titleContains: String?)
     case dumpTree(maxDepth: Int)
+    case screenshot(path: String?)
     case reset
     case log(message: String)
     case mode(ExecutionMode)

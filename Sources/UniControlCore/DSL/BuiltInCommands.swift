@@ -139,6 +139,24 @@ public enum BuiltInCommands {
         requiresWindow: true
     )
 
+    public static let screenshot = CommandDescriptor(
+        verb: "screenshot",
+        mcpName: "screenshot",
+        syntax: "screenshot [file-path]",
+        description: "Capture the current window",
+        detailedDescription: "Capture a screenshot of the current window. Returns the image so you can SEE the window state — use it to verify actions, read custom-rendered UI that the accessibility tree cannot describe, or decide where to click_at. The response includes the window's screen frame so positions in the image can be converted to screen coordinates: screenX = frameX + imageX * frameWidth / imageWidth (same for Y). Requires Screen Recording permission (separate from Accessibility).",
+        category: .stateQueries,
+        parameters: [
+            ParameterDescriptor(
+                name: "path",
+                type: .string,
+                description: "Optional file path to save the PNG to (defaults to a temp file)",
+                isRequired: false
+            )
+        ],
+        requiresWindow: true
+    )
+
     // MARK: - Basic Actions
 
     public static let click = CommandDescriptor.simple(
@@ -166,6 +184,34 @@ public enum BuiltInCommands {
         detailedDescription: "Right-click (context click) the currently selected element. Use find_element first to select an element.",
         category: .basicActions,
         requiresElement: true
+    )
+
+    public static let clickAt = CommandDescriptor(
+        verb: "clickat",
+        mcpName: "click_at",
+        syntax: "clickat <x> <y> [right|double]",
+        description: "Click at screen coordinates",
+        detailedDescription: "Click at absolute screen coordinates (in points, origin top-left of the main display). Use this as a fallback when an element is not reachable through find_element — derive the coordinates from a screenshot (which reports the window's screen frame) or from element positions returned by find_element/get_element. Take a fresh screenshot first if the UI may have changed.",
+        category: .basicActions,
+        parameters: [
+            ParameterDescriptor(
+                name: "x",
+                type: .number,
+                description: "X screen coordinate in points"
+            ),
+            ParameterDescriptor(
+                name: "y",
+                type: .number,
+                description: "Y screen coordinate in points"
+            ),
+            ParameterDescriptor(
+                name: "type",
+                type: .string,
+                description: "Click kind (default: left)",
+                isRequired: false,
+                enumValues: ["left", "right", "double"]
+            )
+        ]
     )
 
     public static let type = CommandDescriptor(
@@ -545,6 +591,7 @@ public enum BuiltInCommands {
         click,
         doubleClick,
         rightClick,
+        clickAt,
         type,
         setValue,
         wait,
@@ -570,6 +617,7 @@ public enum BuiltInCommands {
         getApps,
         getElement,
         dumpTree,
+        screenshot,
         assertCondition,
         // Composite
         executeScript,

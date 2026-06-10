@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import CoreGraphics
+import ImageIO
 
 /// Handler for MCP protocol messages
 public class MCPHandler {
@@ -232,6 +234,10 @@ public class MCPHandler {
             return executeGetElement()
         case "dump_tree":
             return executeDumpTree(arguments)
+        case "screenshot":
+            return executeScreenshot(arguments)
+        case "click_at":
+            return executeClickAt(arguments)
         case "assert":
             return executeAssert(arguments)
 
@@ -541,6 +547,69 @@ public class MCPHandler {
                 return .text(tree)
             }
             return .text("Tree dumped")
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeScreenshot(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        let path = args["path"]?.stringValue
+        let result = executeCommand(.screenshot(path: path))
+
+        switch result {
+        case .success(let value):
+            guard let savedPath = value as? String else {
+                return .error("Screenshot succeeded but no file path was returned")
+            }
+
+            // Load the saved PNG and return it as image content, downscaled so
+            // the longest edge fits typical model input limits.
+            guard #available(macOS 12.3, *),
+                  let dataProvider = CGDataProvider(filename: savedPath),
+                  let original = CGImage(
+                      pngDataProviderSource: dataProvider,
+                      decode: nil,
+                      shouldInterpolate: false,
+                      intent: .defaultIntent
+                  ) else {
+                return .text("Screenshot saved to \(savedPath) (could not load image data to embed)")
+            }
+
+            let scaled = downscaleImage(original, maxDimension: 1568)
+            guard let png = pngData(from: scaled) else {
+                return .text("Screenshot saved to \(savedPath) (could not encode image data)")
+            }
+            let base64 = png.base64EncodedString()
+
+            var info = "Screenshot of the current window (saved to \(savedPath))."
+            if let window = executor.context.currentWindow,
+               let bounds = captureWindowBounds(window) {
+                info += " Window frame on screen: origin (\(Int(bounds.origin.x)), \(Int(bounds.origin.y))), size \(Int(bounds.width))x\(Int(bounds.height)) points."
+                info += " Image is \(scaled.width)x\(scaled.height) pixels."
+                info += " To click something you see: screenX = \(Int(bounds.origin.x)) + imageX * \(Int(bounds.width)) / \(scaled.width), screenY = \(Int(bounds.origin.y)) + imageY * \(Int(bounds.height)) / \(scaled.height), then call click_at."
+            }
+
+            return MCPToolCallResult(content: [
+                .image(MCPImageContent(data: base64, mimeType: "image/png")),
+                .text(MCPTextContent(text: info))
+            ])
+
+        case .failure(let error):
+            return .error(error)
+        }
+    }
+
+    private func executeClickAt(_ args: [String: JSONValue]) -> MCPToolCallResult {
+        guard let x = args["x"]?.doubleValue, let y = args["y"]?.doubleValue else {
+            return .error("Missing required parameters: x and y")
+        }
+
+        let kind = ClickKind(rawValue: args["type"]?.stringValue?.lowercased() ?? "left") ?? .left
+        let result = executeCommand(.perform(action: .clickAt(x: x, y: y, kind: kind)))
+
+        switch result {
+        case .success:
+            return .text("\(kind.rawValue.capitalized)-clicked at (\(Int(x)), \(Int(y))). Take a screenshot or use get_element/dump_tree to verify the effect.")
         case .failure(let error):
             return .error(error)
         }
