@@ -113,18 +113,15 @@ public func launchAppAndGetFocusedWindow(appName: String, completion: @escaping 
 
         // Retry function to get focused window
         func getFocusedWindowWithRetry(retries: Int = 10, delay: TimeInterval = 0.5, completion: @escaping (AXUIElement?) -> Void) {
-            var attempts = 0
-
-            func attempt() {
+            func attempt(_ attempts: Int) {
                 var focusedWindow: AnyObject?
                 let result = AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &focusedWindow)
 
                 if result == .success, let window = focusedWindow {
                     completion(unsafeBitCast(window, to: AXUIElement.self))
                 } else if attempts < retries {
-                    attempts += 1
                     DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
-                        attempt()
+                        attempt(attempts + 1)
                     }
                 } else {
                     print("Failed to get focused window after \(attempts) attempts, error: \(result.rawValue)")
@@ -132,7 +129,7 @@ public func launchAppAndGetFocusedWindow(appName: String, completion: @escaping 
                 }
             }
 
-            attempt()
+            attempt(0)
         }
 
         getFocusedWindowWithRetry(completion: completion)
