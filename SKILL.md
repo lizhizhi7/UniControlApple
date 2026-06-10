@@ -22,7 +22,7 @@ assert exists <selector>             # Verify an action worked
 | Command | Syntax | Description |
 |---------|--------|-------------|
 | `launch` | `launch <app-name>` | Launch application by name (partial match OK) |
-| `usewindow` | `usewindow [title-substring]` | Attach to an already-open window; frontmost when no title given |
+| `usewindow` | `usewindow [title] [as <alias>]` / `usewindow @alias` | Attach to an open window (frontmost if no title); `as` saves it, `@alias` switches back |
 
 ```
 launch Safari
@@ -164,11 +164,41 @@ assert missing Error
 assert value 12
 ```
 
+### Variables
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `set` | `set <name> = <value>` | Store a variable; reference as `$name` / `${name}` in later arguments |
+| `getvalue` | `getvalue <name>` | Capture the current element's value into a variable |
+
+```
+find Total role: AXTextField
+getvalue total
+usewindow Other Window
+find Amount role: AXTextField
+setvalue $total
+```
+
+### Control Flow
+
+| Command | Syntax | Description |
+|---------|--------|-------------|
+| `if` | `if <condition> ... [else ...] end` | Branch on assert-style conditions (exists/missing/enabled/disabled/value) |
+| `repeat` | `repeat <n> ... end` | Run a block n times; blocks nest |
+
+```
+if exists Save role: AXButton
+  click
+else
+  presskey cmd+s
+end
+```
+
 ### Session
 
 | Command | Syntax | Description |
 |---------|--------|-------------|
-| `reset` | `reset` | Clear window/element context |
+| `reset` | `reset` | Clear window/element context, saved windows, and variables |
 
 ### Execution Mode
 

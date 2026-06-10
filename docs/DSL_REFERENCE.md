@@ -50,9 +50,11 @@ Attaches to an already-open window without launching anything. With no argument,
 ```
 usewindow                  # control the frontmost window
 usewindow Untitled         # control the window titled like "Untitled"
+usewindow Untitled as doc  # ...and remember it as @doc
+usewindow @doc             # switch back to the saved window
 ```
 
-Use `getwindows` to list candidate windows.
+Use `getwindows` to list candidate windows. Saved aliases enable multi-window workflows (copy from one, paste into another) without re-searching titles.
 
 ### Element Finding
 
@@ -421,11 +423,53 @@ Element: AXButton - "Submit"
 
 JSON response includes: `role`, `roleDescription`, `title`, `description`, `value`, `enabled`, `focused`, `selected`, `expanded`, `position`, `size`, `actions`, `childrenCount`
 
+### Variables
+
+#### `set <name> = <value>` / `getvalue <name>`
+
+`set` stores a session variable; `getvalue` captures the current element's value into one. Reference variables as `$name` or `${name}` in the arguments of `type`, `setvalue`, `find`/`waitfor` selectors, `log`, `launch`, `presskey`, menu paths, `assert value`, `usewindow`, and `screenshot`. Unknown `$refs` and dollar amounts (`$5`) pass through unchanged.
+
+```
+find Total role: AXTextField
+getvalue total
+usewindow Report as report
+find Amount role: AXTextField
+setvalue $total
+```
+
+### Control Flow Blocks
+
+#### `if <condition> ... [else ...] end`
+
+Branches on the same conditions as `assert` (`exists <selector>`, `missing <selector>`, `enabled`, `disabled`, `value <text>`). Blocks nest.
+
+```
+if exists Save role: AXButton
+  click
+else
+  presskey cmd+s
+end
+```
+
+#### `repeat <n> ... end`
+
+Runs a block n times.
+
+```
+repeat 5
+  find Next role: AXButton
+  click
+  wait 0.3
+end
+```
+
+Unbalanced blocks are parse errors that report the opening line; in strict mode a failure inside a block stops execution.
+
 ### Session
 
 #### `reset`
 
-Clears the session context: current window, current element, found elements, and variables.
+Clears the session context: current window, current element, found elements, saved windows, and variables.
 
 ```
 reset

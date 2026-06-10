@@ -288,10 +288,20 @@ getelement                             # Get detailed info about current element
 dumptree [depth]                       # Dump UI element tree (default depth 4)
 screenshot [path]                      # Capture current window to PNG (needs Screen Recording permission)
 
+# Variables
+set <name> = <value>                   # Store a variable ($name / ${name} interpolation)
+getvalue <name>                        # Capture current element's value into a variable
+
+# Control flow (blocks nest)
+if <condition> ... [else ...] end      # Branch on assert-style conditions
+repeat <n> ... end                     # Run a block n times
+
 # Session
-reset                                  # Clear window/element context
+reset                                  # Clear window/element context, saved windows, variables
 log <message>                          # Print message to console
 ```
+
+CLI extras: `--json` emits a machine-readable result document (last line of stdout); `--record [path]` records your clicks/keystrokes as a replayable script.
 
 ### Example Script
 

@@ -7,9 +7,11 @@ A macOS command-line tool for programmatic control of applications using Accessi
 - **Application Control**: Launch and manage macOS applications
 - **Element Discovery**: Find UI elements by title, role, state, or regex patterns
 - **UI Interaction**: Click, type, scroll, and manipulate UI elements
-- **DSL Support**: Simple scripting language for automation workflows
+- **DSL Support**: Scripting language with variables, conditionals, and loops
 - **Vision Fallback**: OCR-based element detection when accessibility fails
-- **Multiple Modes**: CLI scripts, interactive REPL, or HTTP/WebSocket server
+- **Operation Recording**: `--record` captures your clicks/keystrokes as a replayable script
+- **Machine-Readable Output**: `--json` emits structured results for agents
+- **Multiple Modes**: CLI scripts, interactive REPL, MCP server, or HTTP/WebSocket server
 
 ## Quick Start
 
@@ -151,6 +153,7 @@ After configuration, Claude can control your Mac:
 | `dump_tree` | Dump the UI element tree for discovery |
 | `screenshot` | Capture the current window; returns the image + coordinate mapping (needs Screen Recording permission) |
 | `click_at` | Click at absolute screen coordinates (left/right/double) |
+| `set_variable`, `get_value` | Session variables for `$name` interpolation in scripts |
 | `execute_script` | Run multi-command DSL script |
 | `reset_session` | Clear session context |
 
@@ -194,6 +197,9 @@ curl -X POST http://localhost:8080/mcp \
 | `dumptree` | `dumptree 3` | Dump UI element tree |
 | `screenshot` | `screenshot /tmp/win.png` | Capture current window to PNG |
 | `clickat` | `clickat 450 320 double` | Click at screen coordinates |
+| `set` / `getvalue` | `set name = John` / `getvalue total` | Variables; use `$name` in later arguments |
+| `if` / `else` / `end` | `if exists Save ... end` | Branch on assert-style conditions |
+| `repeat` / `end` | `repeat 3 ... end` | Run a block n times |
 | `reset` | `reset` | Clear session context |
 | `log` | `log Step complete` | Print message |
 | `mode` | `mode strict` | Set error handling |

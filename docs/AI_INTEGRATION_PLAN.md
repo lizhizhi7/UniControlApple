@@ -30,16 +30,25 @@ assert / get_element           → verify each step
 screenshot + click_at          → fallback when AX can't see it
 ```
 
-## Deferred (revisit when the need is demonstrated)
+For multi-step batches, `execute_script` supports variables (`set` / `getvalue` / `$name`), `if/else/end`, `repeat n/end`, and `usewindow ... as alias` + `usewindow @alias` — one tool call can carry a value from one window to another and branch on UI state.
 
-| Feature | What it is | Why deferred |
-|---------|-----------|--------------|
-| **JSON CLI output** (`--json`) | Structured per-command JSON on stdout | Serves agents that shell out to the CLI (e.g. Claude Code); the chosen mode is MCP, which already returns structured data |
-| **DSL variables** (`set x = ...`, interpolation) | Carry values between commands inside one script | An MCP model carries values between tool calls itself; only helps batch `execute_script` round-trip economy |
-| **Conditionals / loops** | `if exists ... / repeat N` | Same — the model is the control flow. Mainly valuable for *unattended* saved scripts; high parser complexity |
-| **Post-action state diff** | Auto-report what changed in the UI tree after each action | High value but costly to do well; cheap 80% alternative: return the element's post-action state in action responses |
-| **Multi-window named contexts** | `usewindow A as src` / target by name | Cross-app flows work today by re-attaching; add when chatty re-attachment proves painful |
-| **Operation recording** | Record human interactions → script | Human-workflow feature; indirect AI value only (few-shot examples) |
+## Second wave (June 2026) — formerly deferred, now implemented
+
+| Feature | What landed |
+|---------|-------------|
+| **Post-action element state** | Element actions return the element's refreshed `ElementInfo`; MCP responses append it, so the model verifies effects without a follow-up `get_element` |
+| **JSON CLI output** | `UniControl --json <script>` emits a machine-readable result document as the last line of stdout — for agents that shell out instead of using MCP |
+| **DSL variables** | `set name = value`, `getvalue name` (captures the current element's value), `$name`/`${name}` interpolation in command arguments. MCP: `set_variable` / `get_value` |
+| **Named window contexts** | `usewindow <title> as <alias>` saves a window, `usewindow @alias` switches back; MCP `use_window` gains `save_as`. Enables read-here-paste-there flows across windows |
+| **Conditionals / loops** | `if <condition> ... [else ...] end` (assert-syntax conditions) and `repeat <n> ... end`, nestable, with balanced-block parse diagnostics. Mainly for unattended `execute_script` batches |
+| **Operation recording** | `UniControl --record [path]` captures clicks (hit-tested to AX elements → `find`+`click`) and keystrokes (`type`/`presskey`) into a replayable script — useful as few-shot examples for the model and for humans bootstrapping scripts |
+
+## Still open (future)
+
+| Feature | Notes |
+|---------|-------|
+| **Full UI state diff** | Auto-diffing the whole tree after each action remains costly; the cheap version (post-action element state, above) covers most verification needs. Revisit if models still issue many `dump_tree` calls just to detect changes |
+| **Recording polish** | Drag gestures, scroll capture, coalescing repeated clicks, and smarter selector generation (disambiguating duplicate titles) |
 
 ## Permissions required at runtime
 
